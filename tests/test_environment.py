@@ -55,6 +55,39 @@ class TestCanteenEnv(unittest.TestCase):
         with self.assertRaises(ValueError):
             env.step(100)
 
+
+    def test_forecast_accuracy_is_approximately_configured_probability(self):
+        env = CanteenEnv(EnvironmentConfig(forecast_accuracy=0.70))
+        matches = 0
+        episodes = 5000
+        for seed in range(episodes):
+            env.reset(seed=10_000 + seed)
+            matches += int(env.demand_outlook_index == env._actual_regime_index)
+        observed_accuracy = matches / episodes
+        self.assertAlmostEqual(observed_accuracy, 0.70, delta=0.025)
+
+    def test_perfect_forecast_reveals_true_category(self):
+        env = CanteenEnv(EnvironmentConfig(forecast_accuracy=1.0))
+        for seed in range(50):
+            _state, info = env.reset(seed=seed)
+            self.assertEqual(env.demand_outlook_index, env._actual_regime_index)
+            self.assertEqual(info["demand_outlook_index"], env.demand_outlook_index)
+
+    def test_expected_multiplier_uses_posterior_for_noisy_forecast(self):
+        config = EnvironmentConfig(forecast_accuracy=0.70)
+        env = CanteenEnv(config)
+        # With symmetric priors/multipliers, observing the normal category has an
+        # expected multiplier of 1.0 under this confusion model.
+        self.assertAlmostEqual(env.expected_regime_multiplier(1), 1.0, places=12)
+        self.assertLess(env.expected_regime_multiplier(0), 1.0)
+        self.assertGreater(env.expected_regime_multiplier(2), 1.0)
+
+    def test_invalid_forecast_accuracy_is_rejected(self):
+        for accuracy in (-0.1, 1.1, float("nan"), float("inf")):
+            with self.subTest(accuracy=accuracy):
+                with self.assertRaises(ValueError):
+                    CanteenEnv(EnvironmentConfig(forecast_accuracy=accuracy))
+
     def test_same_seed_is_reproducible(self):
         records = []
         for _ in range(2):

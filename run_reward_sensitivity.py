@@ -101,6 +101,11 @@ def main() -> None:
             "stockout_penalty": evaluation_config.stockout_penalty,
             "waste_penalty": evaluation_config.waste_penalty,
         },
+        "forecast_model": {
+            "accuracy_assumption": evaluation_config.forecast_accuracy,
+            "true_regime_hidden_from_policy": True,
+            "wrong_forecast_rule": "If wrong, one of the other outlook categories is selected uniformly.",
+        },
         "training_waste_penalties": list(WASTE_PENALTIES),
         "training_seeds": list(TRAINING_SEEDS),
         "training_episodes_per_seed": TRAINING_EPISODES,

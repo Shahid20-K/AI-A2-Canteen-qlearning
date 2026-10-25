@@ -18,6 +18,8 @@ class EnvironmentConfig:
     carryover_fraction: float = 0.30
     regime_multipliers: Tuple[float, ...] = (0.70, 1.00, 1.30)
     regime_probabilities: Tuple[float, ...] = (0.25, 0.50, 0.25)
+    # The displayed outlook is a noisy category forecast, not the true regime.
+    forecast_accuracy: float = 0.70
     sold_reward: float = 1.0
     preparation_cost: float = 0.35
     stockout_penalty: float = 1.0
@@ -27,9 +29,12 @@ class EnvironmentConfig:
 class CanteenEnv:
     """Finite-horizon simulation with integer inventory and stochastic demand.
 
-    State: (time slot, exact inventory, observed daily demand-outlook category).
-    In this intentionally optimistic simulator, the observed outlook identifies
-    the day's demand regime. Individual slot demand remains stochastic.
+    Observation/state: (time slot, exact inventory, observed daily demand-outlook category).
+    The actual daily regime is hidden. The forecast category matches it with the
+    configured probability (70% by default); when wrong, another category is
+    selected uniformly. Individual slot demand remains stochastic. The resulting
+    problem is partially observable; tabular Q-learning learns a memoryless policy
+    over the available observation rather than maintaining a full belief state.
 
     Action: index into ``config.actions``, representing additional portions to
     prepare. The discrete action set (0, 5, 10, 15, 20) is an explicit assumed
@@ -52,7 +57,8 @@ class CanteenEnv:
         self.time = 0
         self.inventory = 0
         self.demand_outlook_index = int(np.argmax(self.config.regime_probabilities))
-        self.day_regime = self.config.regime_multipliers[self.demand_outlook_index]
+        self._actual_regime_index = self.demand_outlook_index
+        self._actual_regime_multiplier = self.config.regime_multipliers[self._actual_regime_index]
 
     @staticmethod
     def _validate_config(config: EnvironmentConfig) -> None:
@@ -80,6 +86,8 @@ class CanteenEnv:
             raise ValueError("regime_multipliers must be finite and non-negative")
         if any(not math.isfinite(float(p)) or float(p) < 0 for p in config.regime_probabilities):
             raise ValueError("regime_probabilities must be finite and non-negative")
+        if not math.isfinite(float(config.forecast_accuracy)) or not 0.0 <= config.forecast_accuracy <= 1.0:
+            raise ValueError("forecast_accuracy must be finite and in [0, 1]")
         if not np.isclose(sum(config.regime_probabilities), 1.0):
             raise ValueError("regime_probabilities must be non-negative and sum to 1")
         if not any(p > 0 for p in config.regime_probabilities):
@@ -94,15 +102,24 @@ class CanteenEnv:
             self.rng = np.random.default_rng(seed)
         self.time = 0
         self.inventory = 0
-        self.demand_outlook_index = int(self.rng.choice(
+        # Sample the hidden true regime first. The agent receives only a noisy
+        # category forecast; the actual regime is kept private to the dynamics.
+        self._actual_regime_index = int(self.rng.choice(
             self.outlook_levels, p=self.config.regime_probabilities
         ))
-        self.day_regime = self.config.regime_multipliers[self.demand_outlook_index]
+        self._actual_regime_multiplier = self.config.regime_multipliers[self._actual_regime_index]
+        if self.outlook_levels == 1 or self.rng.random() < self.config.forecast_accuracy:
+            self.demand_outlook_index = self._actual_regime_index
+        else:
+            alternatives = [i for i in range(self.outlook_levels) if i != self._actual_regime_index]
+            self.demand_outlook_index = int(self.rng.choice(alternatives))
+
         labels = ("low", "normal", "high")
         label = labels[self.demand_outlook_index] if self.outlook_levels == 3 else str(self.demand_outlook_index)
         return self._state_index(), {
             "demand_outlook": label,
             "demand_outlook_index": self.demand_outlook_index,
+            "forecast_accuracy_assumption": self.config.forecast_accuracy,
         }
 
     def _state_index(self) -> int:
@@ -114,6 +131,32 @@ class CanteenEnv:
         if not 0 <= self.demand_outlook_index < self.outlook_levels:
             raise RuntimeError("Demand-outlook index is outside configured bounds")
         return (self.time * (self.config.max_inventory + 1) + self.inventory) * self.outlook_levels + self.demand_outlook_index
+
+    def expected_regime_multiplier(self, observed_outlook_index: int | None = None) -> float:
+        """Return E[regime multiplier | noisy forecast] using Bayes' rule.
+
+        This is used by the rule-based baseline. It sees the same forecast as the
+        RL agent but does not get access to the hidden true regime.
+        """
+        observed = self.demand_outlook_index if observed_outlook_index is None else observed_outlook_index
+        if isinstance(observed, bool) or not isinstance(observed, Integral):
+            raise ValueError("observed_outlook_index must be an integer")
+        if not 0 <= observed < self.outlook_levels:
+            raise ValueError(f"observed_outlook_index must be in [0, {self.outlook_levels - 1}]")
+        if self.outlook_levels == 1:
+            return float(self.config.regime_multipliers[0])
+
+        accuracy = self.config.forecast_accuracy
+        likelihood = np.full(self.outlook_levels, (1.0 - accuracy) / (self.outlook_levels - 1))
+        likelihood[int(observed)] = accuracy
+        unnormalized = np.asarray(self.config.regime_probabilities, dtype=float) * likelihood
+        total = float(unnormalized.sum())
+        if total <= 0.0:
+            # This can only occur for an observation impossible under the configured
+            # prior/confusion model (e.g., manually forcing a state in a unit test).
+            return float(self.config.regime_multipliers[int(observed)])
+        posterior = unnormalized / total
+        return float(np.dot(posterior, np.asarray(self.config.regime_multipliers, dtype=float)))
 
     def decode_state(self, state_index: int) -> tuple[int, int, int]:
         """Return ``(time_slot, inventory, outlook_index)`` for a valid state ID."""
@@ -138,7 +181,7 @@ class CanteenEnv:
         requested_prep = int(self.config.actions[action_index])
         prep = min(requested_prep, max(0, self.config.max_inventory - self.inventory))
         available = self.inventory + prep
-        mean_demand = self.config.demand_means[self.time] * self.day_regime
+        mean_demand = self.config.demand_means[self.time] * self._actual_regime_multiplier
         demand = int(self.rng.poisson(mean_demand))
         sold = min(available, demand)
         stockout = max(0, demand - available)

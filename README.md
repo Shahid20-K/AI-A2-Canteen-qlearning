@@ -29,7 +29,6 @@ run_reward_sensitivity.py  Reward-weight sensitivity experiment (3 penalties x 3
 make_report.py         Two-page PDF report generator
 AI_A2_Report.pdf       Generated two-page report with team and repository details
 requirements.txt       Python dependencies
-SUBMISSION_CHECKLIST.md
 VALIDATION_NOTES.md
 ```
 
@@ -64,20 +63,21 @@ python run_reward_sensitivity.py
 python make_report.py
 ```
 
-The test suite currently contains **13 tests**. The main experiment trains five Q-learning agents (seeds 2026-2030) for 20,000 episodes each. The optional sensitivity experiment trains nine additional agents (three waste-penalty settings × three seeds) for 20,000 episodes each; it is a targeted diagnostic and may take longer than the unit tests.
+The test suite currently contains **17 tests**. The main experiment trains five Q-learning agents (seeds 2026-2030) for 20,000 episodes each. The optional sensitivity experiment trains nine additional agents (three waste-penalty settings × three seeds) for 20,000 episodes each; it is a targeted diagnostic and may take longer than the unit tests.
 
 ## RL formulation
 
 - **State:** `(time_slot, exact_inventory, demand_outlook)`. There are 8 time slots, 41 inventory levels (0-40 portions), and 3 outlook categories: `8 × 41 × 3 = 984` states.
 - **Action:** request an additional preparation batch from `{0, 5, 10, 15, 20}` portions. The maximum 20-portion batch per time slot is an explicit modelling assumption, not a measured kitchen limit. Actual production is also clipped by the separate 40-portion total-inventory capacity.
-- **Demand:** at the start of a simulated day, a low/normal/high regime is sampled using probabilities `0.25/0.50/0.25` and multipliers `0.70/1.00/1.30`. The observed outlook identifies the demand regime in this deliberately optimistic simulator. Slot demand is independently sampled from a Poisson distribution around the adjusted mean.
+- **Demand and forecast:** at the start of a simulated day, a hidden low/normal/high regime is sampled using prior probabilities `0.25/0.50/0.25` and multipliers `0.70/1.00/1.30`. The agent observes a noisy category forecast that is correct with probability `0.70`; when it is wrong, one of the other two categories is selected uniformly. Slot demand is sampled from a Poisson distribution around the hidden regime-adjusted mean. These values are synthetic assumptions.
+- **Partial observability:** the true regime remains hidden and persists over the day. The tabular agent uses `(time_slot, exact_inventory, observed_forecast)` as a compact observation-based state and does not maintain a full belief state. This simplification is reported as a limitation.
 - **Carryover:** 30% of leftover portions, rounded down, carries to the next slot; the rest is discarded. Nothing carries after the final slot.
 - **Reward:** `sold - 0.35 × prepared - 1.00 × unmet_demand - 1.50 × discarded_waste`. These are illustrative utility weights, not measured currency costs.
 - **Algorithm:** tabular Q-learning with epsilon-greedy exploration, learning rate `0.12`, discount factor `0.92`, initial epsilon `1.0`, minimum epsilon `0.05`, and multiplicative decay `0.9992`. Terminal transitions do not bootstrap from a future Q-value.
 
 ## Validation methodology
 
-1. **Baseline tuning is separated from the final test.** The forecast-aware rule selects its target fraction from `50%, 60%, 70%, 80%, 90%, 100%, 110%, 120%` of the outlook-adjusted demand mean on a separate 1,000-day validation set (seed range beginning at 300,000). The best validation target is 100% for the current configuration.
+1. **Baseline tuning is separated from the final test.** The rule-based baseline computes the posterior expected regime multiplier for the observed noisy forecast using Bayes' rule. It selects its target fraction from `50%, 60%, 70%, 80%, 90%, 100%, 110%, 120%` of the posterior-adjusted demand mean on a separate 1,000-day validation set (seed range beginning at 300,000). The final test set is not used for tuning.
 2. **Held-out comparison.** The three policies are evaluated on the same 2,000 synthetic test days (seed range beginning at 500,000): Q-learning, a fixed 15-portion batch, and the validation-tuned forecast-aware rule. Matched per-episode demand draws support paired difference intervals.
 3. **Training-seed robustness.** Five independent Q-learning agents are evaluated on the same held-out episodes; the learning curve shows the mean and ±1 standard deviation across seeds.
 4. **Demand-shift stress test.** The nominally trained Q-table and the tuned rule (whose planning means remain nominal) are tested when the environment's demand means are scaled to `0.75×` and `1.25×`. This does not give either policy the newly shifted means.
@@ -89,13 +89,13 @@ These are generated results from the included simulator and fixed random seeds. 
 
 | Policy | Reward/day | Sold/day | Unmet demand/day | Waste/day |
 |---|---:|---:|---:|---:|
-| Q-learning (seed 2026) | 30.43 | 120.90 | 34.58 | 7.34 |
-| Fixed 15-portion batch | -5.06 | 106.41 | 49.07 | 13.59 |
-| Forecast-aware tuned schedule (100% target) | 30.76 | 122.60 | 32.88 | 8.67 |
+| Q-learning (seed 2026) | 25.66 | 117.68 | 38.09 | 6.89 |
+| Fixed 15-portion batch | -5.08 | 106.48 | 49.29 | 13.52 |
+| Forecast-aware tuned schedule (100% target) | 26.60 | 121.93 | 33.84 | 10.17 |
 
-On the nominal test set, the Q-learning agent clearly improves on the fixed-batch baseline. However, the validation-tuned forecast-aware rule has a slightly higher mean reward (30.76 versus 30.43); the primary-seed paired reward difference for Q-learning minus that rule is `-0.33` with an approximate 95% CI of `[-0.56, -0.10]`. Q-learning discards fewer portions than the tuned rule (7.34 versus 8.67) but serves fewer portions and has more unmet demand. This trade-off is a result, not something to conceal.
+The nominal test results below are generated with a 70%-accurate noisy outlook. Q-learning is evaluated against a fixed-batch baseline and a forecast-aware rule that uses the same forecast information through a posterior expected multiplier. On the held-out test set, Q-learning reward is `25.66` (95% CI `24.89–26.42`) versus `26.60` (`25.81–27.38`) for the tuned rule. The paired difference (Q-learning minus tuned rule) is `-0.94` (95% CI `-1.31–-0.57`). Q-learning discards less food (6.89 vs 10.17 portions/day) but serves fewer portions and has more unmet demand. This trade-off should be interpreted honestly.
 
-Under the demand-shift tests, mean rewards for Q-learning vs the nominal-planning tuned rule are `20.86 vs 16.30` at `0.75×` demand and `8.75 vs 11.58` at `1.25×` demand. Thus neither policy is best across every operating condition.
+Under demand-shift tests, mean rewards for Q-learning vs the nominal-planning tuned rule are `21.43 vs 12.69` at `0.75×` demand and `3.15 vs 9.03` at `1.25×` demand. Both policies retain their nominal planning assumptions while the environment's means shift.
 
 ## Reward-weight sensitivity analysis
 
@@ -113,6 +113,6 @@ In the current run, a larger waste penalty generally reduces discarded portions 
 
 This project explores the use of tabular Q-learning to balance food availability and waste in a simulated campus canteen. It compares the learned policy with fixed-batch and forecast-aware preparation strategies and evaluates the effects of changing demand and reward-function parameters.
 
-The experiments highlight a trade-off between reducing food waste and meeting student demand. Q-learning reduces waste compared with the tuned forecast-aware strategy, while the latter achieves a slightly higher reward and fewer unmet orders under nominal simulated conditions.
+The experiments highlight a trade-off between reducing food waste and meeting student demand. Under the nominal noisy-forecast simulation, the tuned forecast-aware rule achieves a slightly higher reward and fewer unmet orders than Q-learning, while Q-learning discards less food. Under changed demand, each policy has different strengths.
 
-All results are based on synthetic demand and the assumptions defined in the simulation. They should not be interpreted as evidence of actual canteen savings. Future work could incorporate historical demand data, imperfect forecasts, food freshness, and realistic preparation constraints.
+All results are based on synthetic demand and assumptions defined in the simulation. They do not establish actual canteen savings. The true regime is hidden, and the tabular agent does not maintain a belief state using previous sales; future work could add belief updates, permitted historical data, food freshness, and realistic preparation constraints.

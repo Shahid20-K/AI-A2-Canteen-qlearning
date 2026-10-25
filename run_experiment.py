@@ -274,14 +274,23 @@ def main():
 
     results = {
         "project": "Adaptive Meal Preparation in a Campus Canteen using Q-Learning",
-        "synthetic_simulation_notice": "Demand profiles, outlook probabilities, carryover fraction, and reward weights are illustrative assumptions, not measured campus data.",
-        "state_representation": "time slot, exact integer inventory, observed daily demand-outlook category",
+        "synthetic_simulation_notice": "Demand profiles, outlook probabilities, forecast accuracy, carryover fraction, and reward weights are illustrative assumptions, not measured campus data.",
+        "state_representation": "time slot, exact integer inventory, noisy observed daily demand-outlook category; the true daily regime is hidden",
+        "forecast_model": {
+            "accuracy_assumption": env_config.forecast_accuracy,
+            "wrong_forecast_rule": "If the forecast is wrong, one of the other outlook categories is selected uniformly.",
+            "true_regime_hidden_from_policy": True,
+            "baseline_demand_estimate": "Posterior expected demand multiplier given the observed forecast, using Bayes' rule.",
+        },
         "state_count": CanteenEnv(env_config).n_states,
+        "forecast_accuracy_assumption": env_config.forecast_accuracy,
+        "forecast_observation_model": "True regime is sampled from the configured prior. The forecast is correct with the configured probability; on an error, one of the other categories is chosen uniformly.",
+        "baseline_forecast_interpretation": "The rule-based baseline uses the posterior expected regime multiplier conditional on the noisy forecast, computed by Bayes' rule.",
         "training": primary_train_info,
         "robustness_training_seeds": TRAINING_SEEDS,
         "training_episodes_per_seed": TRAINING_EPISODES,
         "validation_tuning": {
-            "purpose": "Select the forecast-aware baseline target fraction on a validation set separate from final test episodes.",
+            "purpose": "Select the Bayesian forecast-aware baseline target fraction on a validation set separate from final test episodes.",
             "target_fractions_considered": list(TARGET_FRACTIONS),
             "validation_episodes_per_fraction": VALIDATION_EPISODES,
             "validation_seed_start": VALIDATION_SEED_START,
@@ -358,7 +367,8 @@ def main():
     print("Experiment complete.")
     print(f"Q-table shape: {primary_q_table.shape}; state count: {CanteenEnv(env_config).n_states}")
     print(f"Training: {TRAINING_EPISODES} episodes x {len(TRAINING_SEEDS)} independent seeds")
-    print(f"Validation tuning: {len(TARGET_FRACTIONS)} baseline target fractions; selected {tuned_fraction:.0%}")
+    print(f"Observed forecast accuracy assumption: {env_config.forecast_accuracy:.0%}")
+    print(f"Validation tuning: {len(TARGET_FRACTIONS)} Bayesian forecast-baseline target fractions; selected {tuned_fraction:.0%}")
     print(f"Evaluation: {EVALUATION_EPISODES} matched held-out days per policy and training seed")
     print("\nSeed-2026 primary model and baselines:")
     for label, values in primary_metrics.items():

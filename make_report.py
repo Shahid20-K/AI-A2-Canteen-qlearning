@@ -217,7 +217,7 @@ def draw_page_one(c):
 
     yL = section(c, "2. Environment and demand", left_x, yL, COL_W)
     yL = paragraph(c,
-        "One simulated day contains eight time slots. Nominal demand means are <b>(8, 12, 22, 30, 24, 18, 27, 14)</b> portions. A daily outlook is low, normal, or high, with multipliers 0.70, 1.00, and 1.30 and probabilities 0.25, 0.50, and 0.25. Actual demand is sampled from a Poisson distribution around the slot mean multiplied by the outlook factor.",
+        "One day has eight time slots with nominal mean demand <b>(8, 12, 22, 30, 24, 18, 27, 14)</b>. The hidden low/normal/high regime has multipliers 0.70/1.00/1.30 and prior probabilities 0.25/0.50/0.25. The agent sees a noisy category forecast: it is correct with probability 70%; when wrong, one of the other categories is selected uniformly. Demand is Poisson-distributed around the hidden regime-adjusted mean.",
         left_x, yL, COL_W, "body", gap=2)
     yL = paragraph(c,
         "The inventory capacity is 40 portions. Of unsold portions, 30% (rounded down) can carry into the next slot; the remainder is discarded. Nothing carries beyond the final slot. These are explicit synthetic assumptions, not measured canteen data.",
@@ -228,7 +228,7 @@ def draw_page_one(c):
 
     yL = section(c, "3. State space S", left_x, yL, COL_W)
     yL = paragraph(c,
-        "The agent observes <b>(time slot, exact integer inventory, daily demand outlook)</b>. Inventory is represented exactly from 0 to 40 portions. In this optimistic simulation, the observed low/normal/high outlook identifies the day's demand regime; slot demand remains a random Poisson draw. Real forecasts are not perfectly accurate.",
+        "The agent observes <b>(time slot, exact integer inventory, noisy daily outlook)</b>. Inventory is exact from 0 to 40 portions. The actual daily regime is hidden, and the outlook is correct only 70% of the time by assumption. The observation is therefore partially informative; tabular Q-learning learns a reactive policy over the current observation rather than maintaining a full belief state.",
         left_x, yL, COL_W, "body", gap=2)
     yL = paragraph(c, "State count = 8 × 41 × 3 = <b>984 discrete states</b>.", left_x, yL, COL_W, "equation", gap=2)
     yL = paragraph(c,
@@ -248,7 +248,7 @@ def draw_page_one(c):
         "For slot t, available stock is A<sub>t</sub> = min(I<sub>t</sub> + p<sub>t</sub>, 40). Sales are min(A<sub>t</sub>, D<sub>t</sub>) and unmet demand is max(D<sub>t</sub> − A<sub>t</sub>, 0). Leftover stock is max(A<sub>t</sub> − D<sub>t</sub>, 0); carryover is floor(0.30 × leftover) except at the final slot, where it is zero. Discarded waste equals leftover minus carryover.",
         left_x, yL, COL_W, "small", gap=2)
     yL = paragraph(c,
-        "Exact inventory avoids merging materially different stock levels into one state. The observed outlook identifies the demand regime in this simplified simulation, while the exact demand draw remains random. This makes the specified environment a finite-state decision process, under the stated assumptions.",
+        "The hidden regime persists for the day while the forecast is noisy, so the observed state is not fully Markov. This experiment treats the 984 encoded observations as a compact state approximation; a future extension could maintain a belief over hidden regimes using earlier observations.",
         left_x, yL, COL_W, "small", gap=2)
 
     yR = section(c, "7. Reward function R", right_x, yR, COL_W)
@@ -282,11 +282,11 @@ def draw_page_one(c):
 
     yR = section(c, "9. Evaluation design", right_x, yR, COL_W)
     yR = paragraph(c,
-        f"Each policy is tested on the same 2,000 held-out simulated days using matched episode seeds. A forecast-aware rule's target fraction is selected from {', '.join(f'{x:.0%}' for x in metrics['validation_tuning']['target_fractions_considered'])} using a separate {metrics['validation_tuning']['validation_episodes_per_fraction']:,}-day validation set; the final test set is not used for tuning. Five independently trained agents assess seed sensitivity. Paired reward differences, confidence intervals, and 0.75×/1.25× demand-shift tests are recorded.",
+        f"Each policy is tested on the same 2,000 held-out simulated days using matched episode seeds. The rule-based baseline estimates the hidden multiplier by Bayes' rule from the same noisy forecast, then selects its target fraction from {', '.join(f'{x:.0%}' for x in metrics['validation_tuning']['target_fractions_considered'])} on a separate {metrics['validation_tuning']['validation_episodes_per_fraction']:,}-day validation set. Five training seeds, paired intervals, and 0.75×/1.25× demand-shift tests assess robustness.",
         right_x, yR, COL_W, "body", gap=2)
     yR = section(c, "10. Reproducibility", right_x, yR, COL_W)
     yR = paragraph(c,
-        "The primary agent uses training seed 2026; four more agents use independent seeds. Test episodes are separate from training and use matched demand draws across policies. Outputs include the Q-table, returns for all seeds, metrics JSON, plots, a policy heatmap, and an eight-slot example trace. Thirteen unit tests cover state encoding/decoding, transition and reward invariants, configuration validation, training outputs, and reproducible matched-seed evaluation.",
+        "The primary agent uses training seed 2026; four more agents use independent seeds. Test episodes are separate from training and use matched demand draws across policies. Outputs include the Q-table, returns for all seeds, metrics JSON, plots, a policy heatmap, and an eight-slot example trace. Seventeen unit tests cover forecast accuracy and inference, state encoding/decoding, transition and reward invariants, configuration validation, training outputs, and reproducible matched-seed evaluation.",
         right_x, yR, COL_W, "body", gap=2)
     yR = section(c, "11. Scope of evidence", right_x, yR, COL_W)
     yR = paragraph(c,
@@ -370,7 +370,7 @@ def draw_page_two(c):
 
     yR = section(c, "14. Limitations", right_x, yR, COL_W)
     yR = paragraph(c,
-        "Demand is synthetic and Poisson-distributed. The environment assumes one meal type, eight time slots, a perfect categorical regime outlook, a 20-portion maximum action, simplified carryover, and illustrative reward weights. The forecast-aware baseline slightly exceeds the learned agent on nominal reward; Q-learning trades some service for lower waste. No real-world savings are established.",
+        "Demand is synthetic and Poisson-distributed. The environment assumes one meal type, eight time slots, a categorical forecast with assumed 70% accuracy, a 20-portion maximum action, simplified carryover, and illustrative reward weights. The hidden regime persists across the day, while the tabular policy does not maintain a belief state. No real-world savings are established.",
         right_x, yR, COL_W, "small", gap=3)
     yR = section(c, "15. Reward-weight sensitivity", right_x, yR, COL_W)
     sens_rows = [["Train waste wt.", "Base reward/day", "Waste/day", "Unmet/day"]]
@@ -389,11 +389,11 @@ def draw_page_two(c):
         right_x, yR, COL_W, "tiny", gap=3)
     yR = section(c, "16. Future work", right_x, yR, COL_W)
     yR = paragraph(c,
-        "Next steps are to test imperfect forecasts, calibrate assumptions with permitted anonymized canteen records, and model freshness, preparation lead times, and food-safety constraints.",
+        "Next steps are to model belief updates from earlier sales, test several forecast-accuracy levels, calibrate assumptions with permitted anonymized canteen records, and model freshness, preparation lead times, and food-safety constraints.",
         right_x, yR, COL_W, "small", gap=3)
     yR = section(c, "Conclusion", right_x, yR, COL_W)
     yR = paragraph(c,
-        "Within this synthetic simulation, Q-learning greatly improves over the fixed 15-portion batch baseline, but the validation-tuned forecast-aware rule slightly exceeds it on nominal mean reward and has fewer stockouts. Q-learning produces less waste than that tuned rule. No single policy wins on every metric, and results do not establish measured campus-wide impact.",
+        "Within this synthetic simulation with a noisy demand forecast, Q-learning is compared with a fixed batch and a Bayesian forecast-aware rule that uses the same forecast information. Results are simulator-specific and reflect a trade-off among reward, unmet demand, and waste. The true regime is hidden and the current Q-table does not maintain a belief state; no measured campus-wide impact is established.",
         right_x, yR, COL_W, "small", gap=3)
     yR = paragraph(c,
         "Reproducibility: source, trained Q-table, tests, metrics, sensitivity analysis, and figure scripts are included in this repository.",

@@ -119,7 +119,9 @@ def time_of_day_policy(state: int, env: CanteenEnv,
     means = planning_demand_means if planning_demand_means is not None else env.config.demand_means
     if len(means) != env.horizon:
         raise ValueError("planning_demand_means must have one mean per time slot")
-    nominal = means[env.time] * env.config.regime_multipliers[env.demand_outlook_index]
+    # The observed category is noisy; use the posterior expected regime multiplier
+    # rather than treating the forecast as the hidden true regime.
+    nominal = means[env.time] * env.expected_regime_multiplier()
     target_total = int(round((target_fraction * nominal) / 5) * 5)
     desired_addition = max(0, target_total - env.inventory)
     distances = np.abs(np.asarray(env.config.actions) - desired_addition)
