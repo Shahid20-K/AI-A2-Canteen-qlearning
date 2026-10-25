@@ -109,17 +109,10 @@ In the current run, a larger waste penalty generally reduces discarded portions 
 - `results/policy_heatmap.png`: visual summary of the learned greedy actions across the state dimensions.
 - `results/sample_episode_trace.csv`: readable per-slot side-by-side decisions for one matched synthetic day. It is illustrative, not statistically representative.
 
-## Report finalization
+## Conclusion
 
-In `make_report.py`, replace these constants with your real team details and repository URL:
+This project explores the use of tabular Q-learning to balance food availability and waste in a simulated campus canteen. It compares the learned policy with fixed-batch and forecast-aware preparation strategies and evaluates the effects of changing demand and reward-function parameters.
 
-```python
-TEAM_MEMBERS = "[Enter name(s) and roll number(s)]"
-GITHUB_URL = "[Insert repository URL after publishing]"
-```
+The experiments highlight a trade-off between reducing food waste and meeting student demand. Q-learning reduces waste compared with the tuned forecast-aware strategy, while the latter achieves a slightly higher reward and fewer unmet orders under nominal simulated conditions.
 
-Then run `python make_report.py` and confirm `AI_A2_Report.pdf` remains exactly two pages. Do not submit while either placeholder remains.
-
-## Academic integrity and limitations
-
-This implementation was written for this assignment rather than copied from a public RL repository. Follow your course's policy on AI-assisted work and disclosure, maintain genuine commits as you test and revise it, and be able to explain the code in the viva. A synthetic simulation cannot establish actual canteen savings; real deployment would require appropriate historical data, calibrated cost and demand assumptions, imperfect-forecast modelling, and operational/food-safety validation.
+All results are based on synthetic demand and the assumptions defined in the simulation. They should not be interpreted as evidence of actual canteen savings. Future work could incorporate historical demand data, imperfect forecasts, food freshness, and realistic preparation constraints.
