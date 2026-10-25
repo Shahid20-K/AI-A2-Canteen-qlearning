@@ -1,7 +1,6 @@
-"""Generate the two-page, two-column AI-A2 descriptive report draft.
+"""Generate the two-page, two-column AI-A2 descriptive report.
 
 Run from the project root: python make_report.py
-Replace the visible team/GitHub placeholders before final submission.
 """
 from pathlib import Path
 import json
@@ -23,7 +22,7 @@ if not sensitivity_path.exists():
     raise FileNotFoundError("Reward sensitivity results are missing. Run `python run_reward_sensitivity.py` before generating the report.")
 sensitivity = json.loads(sensitivity_path.read_text(encoding="utf-8"))
 
-# Replace these two values after the GitHub repository has been created.
+# Team details and repository URL for this submission.
 TEAM_MEMBERS = "Shahid Samir Khatib - B24CM1055"
 GITHUB_URL = "https://github.com/Shahid20-K/AI-A2-Canteen-qlearning.git"
 
@@ -397,7 +396,7 @@ def draw_page_two(c):
         "Within this synthetic simulation, Q-learning greatly improves over the fixed 15-portion batch baseline, but the validation-tuned forecast-aware rule slightly exceeds it on nominal mean reward and has fewer stockouts. Q-learning produces less waste than that tuned rule. No single policy wins on every metric, and results do not establish measured campus-wide impact.",
         right_x, yR, COL_W, "small", gap=3)
     yR = paragraph(c,
-        "Reproducibility: source, trained Q-table, tests, metrics, sensitivity analysis, and figure scripts are in the repository once the GitHub placeholder is replaced.",
+        "Reproducibility: source, trained Q-table, tests, metrics, sensitivity analysis, and figure scripts are included in this repository.",
         right_x, yR, COL_W, "tiny", gap=2)
 
     if min(yL, yR) < 37:

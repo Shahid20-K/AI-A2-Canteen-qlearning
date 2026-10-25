@@ -27,7 +27,7 @@ results/
 run_experiment.py      Validation, training, evaluation, stress tests and plots
 run_reward_sensitivity.py  Reward-weight sensitivity experiment (3 penalties x 3 training seeds)
 make_report.py         Two-page PDF report generator
-AI_A2_Report.pdf       Report draft (fill team/GitHub constants before submission)
+AI_A2_Report.pdf       Generated two-page report with team and repository details
 requirements.txt       Python dependencies
 SUBMISSION_CHECKLIST.md
 VALIDATION_NOTES.md

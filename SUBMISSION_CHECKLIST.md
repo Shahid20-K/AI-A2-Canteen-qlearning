@@ -19,14 +19,15 @@ python make_report.py
 
 All **13 tests** should pass. Inspect `results/metrics.json`, `results/reward_sensitivity.json`, the policy comparison, learning curve, sensitivity plot, policy heatmap, and sample trace. All result data is synthetic; it is not real canteen evidence.
 
-## 2. Complete the report
+## 2. Report status
 
-Edit the constants near the top of `make_report.py`:
+The two-page `AI_A2_Report.pdf` has been generated using
+`make_report.py`. It includes the configured team details,
+roll number, and GitHub repository URL.
 
-- `TEAM_MEMBERS = "[Enter name(s) and roll number(s)]"`
-- `GITHUB_URL = "[Insert repository URL after publishing]"`
-
-Use your actual details and repository URL. Re-run `python make_report.py`, open `AI_A2_Report.pdf`, confirm it is exactly two pages, and verify no placeholders remain.
+If the team details or repository URL change, update the
+`TEAM_MEMBERS` and `GITHUB_URL` constants in `make_report.py`,
+regenerate the PDF, and verify that it remains exactly two pages.
 
 ## 3. Publish the repository
 

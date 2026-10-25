@@ -52,7 +52,7 @@ python run_reward_sensitivity.py
 python make_report.py
 ```
 
-The final report still needs the team member/roll-number field and GitHub repository URL filled in within `make_report.py` before submission.
+The report generator is configured with the team member, roll-number, and GitHub repository details. The committed AI_A2_Report.pdf was generated using these values. If any of these details change, regenerate the report and verify the two-page limit.
 
 
 ## Reward sensitivity run (three training seeds per setting)
