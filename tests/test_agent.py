@@ -53,6 +53,26 @@ class TestQLearningAndEvaluation(unittest.TestCase):
         with self.assertRaises(ValueError):
             TrainingConfig(epsilon_min=0.2, epsilon_start=0.1)
 
+    def test_history_aware_baseline_uses_sales_pace_and_stockout_flag(self):
+        env = CanteenEnv()
+        env.reset(seed=88)
+        env.time = 3
+        env.inventory = 0
+        env.demand_outlook_index = 1  # normal forecast; posterior mean multiplier is 1.0
+        env.cumulative_expected_demand = 100.0
+        env.cumulative_sold = 50  # below-expected sales pace
+        env.prior_stockout_occurred = False
+        under_pace_action = time_of_day_policy(
+            0, env, target_fraction=0.70, history_adjustment=0.20
+        )
+        env.prior_stockout_occurred = True
+        stockout_history_action = time_of_day_policy(
+            0, env, target_fraction=0.70, history_adjustment=0.20
+        )
+        # With the same observed low sales pace, a known past stockout shifts the
+        # baseline's preparation decision upward rather than interpreting sales as low demand.
+        self.assertGreater(stockout_history_action, under_pace_action)
+
     def test_forecast_baseline_does_not_get_shifted_means_in_stress_test(self):
         nominal = EnvironmentConfig()
         shifted = scaled_demand_config(nominal, 0.75)

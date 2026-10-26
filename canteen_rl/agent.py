@@ -107,21 +107,33 @@ def fixed_batch_policy(state: int, env: CanteenEnv) -> int:
 
 def time_of_day_policy(state: int, env: CanteenEnv,
                        target_fraction: float = 0.80,
-                       planning_demand_means: tuple[float, ...] | None = None) -> int:
-    """Forecast-aware non-learning policy with a fixed target fraction.
+                       planning_demand_means: tuple[float, ...] | None = None,
+                       history_adjustment: float = 0.10) -> int:
+    """History-aware forecast rule with validation-tuned target and correction.
 
-    The target fraction should be selected on a separate validation set, not the
-    final test scenarios. ``planning_demand_means`` lets a stress test hold the
-    planning model fixed while the environment's actual demand distribution shifts.
+    It receives the same observable forecast, sales-pace category, and prior-stockout
+    flag as the RL agent. A previous stockout shifts planned demand upward; without
+    stockouts, below/above sales pace makes a modest downward/upward correction.
+    Parameters must be selected on validation scenarios, never final test episodes.
     """
     if not math.isfinite(target_fraction) or target_fraction < 0.0:
         raise ValueError("target_fraction must be finite and non-negative")
+    if not math.isfinite(history_adjustment) or not 0.0 <= history_adjustment <= 0.5:
+        raise ValueError("history_adjustment must be finite and in [0, 0.5]")
     means = planning_demand_means if planning_demand_means is not None else env.config.demand_means
     if len(means) != env.horizon:
         raise ValueError("planning_demand_means must have one mean per time slot")
-    # The observed category is noisy; use the posterior expected regime multiplier
-    # rather than treating the forecast as the hidden true regime.
-    nominal = means[env.time] * env.expected_regime_multiplier()
+    # The observed category is noisy; use its Bayesian posterior expectation.
+    multiplier = env.expected_regime_multiplier()
+    if env.prior_stockout_occurred:
+        multiplier *= (1.0 + history_adjustment)
+    else:
+        pace = env.sales_pace_category_index()
+        if pace == 0:
+            multiplier *= (1.0 - history_adjustment)
+        elif pace == 2:
+            multiplier *= (1.0 + history_adjustment)
+    nominal = means[env.time] * multiplier
     target_total = int(round((target_fraction * nominal) / 5) * 5)
     desired_addition = max(0, target_total - env.inventory)
     distances = np.abs(np.asarray(env.config.actions) - desired_addition)

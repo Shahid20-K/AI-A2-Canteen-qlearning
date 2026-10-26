@@ -174,7 +174,7 @@ def draw_rl_cycle(c, y_top):
     box_h = 31
     gap = 8
     box_w = (FULL_W - 4 * gap) / 5
-    labels = ["State + outlook", "Q-learning\nagent", "Prep action", "Canteen\nenvironment", "Reward + next\nstate"]
+    labels = ["State + forecast\nhistory", "Q-learning\nagent", "Prep action", "Canteen\nenvironment", "Reward + next\nstate"]
     for i, label in enumerate(labels):
         x = MARGIN + i * (box_w + gap)
         y = box_top - box_h
@@ -228,11 +228,11 @@ def draw_page_one(c):
 
     yL = section(c, "3. State space S", left_x, yL, COL_W)
     yL = paragraph(c,
-        "The agent observes <b>(time slot, exact integer inventory, noisy daily outlook)</b>. Inventory is exact from 0 to 40 portions. The actual daily regime is hidden, and the outlook is correct only 70% of the time by assumption. The observation is therefore partially informative; tabular Q-learning learns a reactive policy over the current observation rather than maintaining a full belief state.",
+        "The agent observes <b>(time slot, exact inventory, noisy daily outlook, sales pace, prior-stockout flag)</b>. Sales pace is below/on/above expected cumulative sales from completed slots; the stockout flag warns that low sales may reflect unavailable food. The true regime remains hidden, and this compact history summary is not a full belief state.",
         left_x, yL, COL_W, "body", gap=2)
-    yL = paragraph(c, "State count = 8 × 41 × 3 = <b>984 discrete states</b>.", left_x, yL, COL_W, "equation", gap=2)
+    yL = paragraph(c, "State count = 8 × 41 × 3 × 3 × 2 = <b>5,904 discrete states</b>.", left_x, yL, COL_W, "equation", gap=2)
     yL = paragraph(c,
-        "This compact tabular representation is intentionally chosen so that the learned values can be inspected and explained in a viva. The state includes the current time and the information available to the simulated decision-maker; demand remains uncertain.",
+        "The sales-pace category compares cumulative sales with cumulative posterior-expected demand: below 85% is below expected, above 115% is above expected, otherwise sales are on track. A prior-stockout flag helps identify censored sales. Demand remains uncertain.",
         left_x, yL, COL_W, "small", gap=2)
 
     yL = section(c, "4. Action space A", left_x, yL, COL_W)
@@ -248,7 +248,7 @@ def draw_page_one(c):
         "For slot t, available stock is A<sub>t</sub> = min(I<sub>t</sub> + p<sub>t</sub>, 40). Sales are min(A<sub>t</sub>, D<sub>t</sub>) and unmet demand is max(D<sub>t</sub> − A<sub>t</sub>, 0). Leftover stock is max(A<sub>t</sub> − D<sub>t</sub>, 0); carryover is floor(0.30 × leftover) except at the final slot, where it is zero. Discarded waste equals leftover minus carryover.",
         left_x, yL, COL_W, "small", gap=2)
     yL = paragraph(c,
-        "The hidden regime persists for the day while the forecast is noisy, so the observed state is not fully Markov. This experiment treats the 984 encoded observations as a compact state approximation; a future extension could maintain a belief over hidden regimes using earlier observations.",
+        "The hidden regime persists for the day while the forecast is noisy. Sales pace and prior stockouts summarize earlier outcomes but do not form a full Bayesian belief state, so the process remains partially observable.",
         left_x, yL, COL_W, "small", gap=2)
 
     yR = section(c, "7. Reward function R", right_x, yR, COL_W)
@@ -273,8 +273,10 @@ def draw_page_one(c):
     yR = paragraph(c,
         "Q(s,a) ← Q(s,a) + α [r + γ max<sub>a′</sub> Q(s′,a′) − Q(s,a)]",
         right_x, yR, COL_W, "equation", gap=2)
+    q_tuning = metrics["q_learning_hyperparameter_tuning"]
+    selected_q = q_tuning["selected_parameters"]
     yR = paragraph(c,
-        "At a terminal transition, the future-value term is zero. Each agent trains for 20,000 episodes with learning rate α = 0.12, discount factor γ = 0.92, initial ε = 1.0, minimum ε = 0.05, and multiplicative decay 0.9992. The main stored agent is seed 2026 and acts greedily at test time; five training seeds assess seed sensitivity.",
+        f"Terminal transitions do not bootstrap future value. Each final agent trains for {metrics['training_episodes_per_seed']:,} episodes with α = {selected_q['learning_rate']:.2f}, γ = {selected_q['discount_factor']:.2f}, and ε decay = {selected_q['epsilon_decay']:.4f}; ε starts at 1.0 and floors at 0.05. A four-candidate, two-seed validation sweep selected α and decay before held-out testing. Five final training seeds assess robustness.",
         right_x, yR, COL_W, "body", gap=2)
     yR = paragraph(c,
         "Early in training, epsilon-greedy exploration tries different preparation batches; as epsilon decays, the agent increasingly uses actions with the highest current Q-value. Discounting values rewards that occur later in the simulated day, so a decision can account for carryover into the next slot.",
@@ -282,11 +284,11 @@ def draw_page_one(c):
 
     yR = section(c, "9. Evaluation design", right_x, yR, COL_W)
     yR = paragraph(c,
-        f"Each policy is tested on the same 2,000 held-out simulated days using matched episode seeds. The rule-based baseline estimates the hidden multiplier by Bayes' rule from the same noisy forecast, then selects its target fraction from {', '.join(f'{x:.0%}' for x in metrics['validation_tuning']['target_fractions_considered'])} on a separate {metrics['validation_tuning']['validation_episodes_per_fraction']:,}-day validation set. Five training seeds, paired intervals, and 0.75×/1.25× demand-shift tests assess robustness.",
+        f"Each policy is tested on the same 2,000 held-out simulated days using matched seeds. The rule baseline uses the same forecast, sales-pace category, and prior-stockout flag; its target (selected from {', '.join(f'{x:.0%}' for x in metrics['validation_tuning']['target_fractions_considered'])}) and history correction are tuned on {metrics['validation_tuning']['validation_episodes_per_candidate']:,} validation days. Q-learning's learning rate and ε decay are tuned separately on a two-seed validation sweep. Five final training seeds, paired intervals, and 0.75×/1.25× stress tests assess robustness.",
         right_x, yR, COL_W, "body", gap=2)
     yR = section(c, "10. Reproducibility", right_x, yR, COL_W)
     yR = paragraph(c,
-        "The primary agent uses training seed 2026; four more agents use independent seeds. Test episodes are separate from training and use matched demand draws across policies. Outputs include the Q-table, returns for all seeds, metrics JSON, plots, a policy heatmap, and an eight-slot example trace. Seventeen unit tests cover forecast accuracy and inference, state encoding/decoding, transition and reward invariants, configuration validation, training outputs, and reproducible matched-seed evaluation.",
+        "The primary agent uses seed 2026; four more agents use independent seeds. Test episodes are separate from training and use matched demand draws across policies. Outputs include the Q-table, returns, metrics JSON, plots, policy slices, and an example trace. Twenty unit tests cover forecast inference, sales-history state encoding, transitions, rewards, configuration, training, and reproducibility.",
         right_x, yR, COL_W, "body", gap=2)
     yR = section(c, "11. Scope of evidence", right_x, yR, COL_W)
     yR = paragraph(c,
@@ -302,21 +304,22 @@ def draw_page_one(c):
 def draw_page_two(c):
     draw_header(c, 2)
     y = PAGE_H - 112
+    q_robust = metrics["multi_seed_robustness"]["q_learning_metrics"]["reward_mean"]
     y = paragraph(c,
-        "Main test: 2,000 held-out synthetic days per policy; Q-learning is the seed-2026 trained agent. The agent was also trained with five independent seeds. All results are outcomes from this specified simulation, not observations from a real canteen.",
+        f"Main test: 2,000 held-out synthetic days per policy. Across five independently trained Q-learning agents, mean reward was {q_robust['mean_across_training_seeds']:.2f} +/- {q_robust['std_across_training_seeds']:.2f} SD; the table shows seed 2026 for paired test-day comparisons. These are simulated outcomes, not real-canteen measurements.",
         MARGIN, y, FULL_W, "body", gap=4)
 
     test_metrics = metrics["test_metrics"]
     q_key = "Q-learning (seed 2026)"
     fixed_key = "Fixed 15-portion batch"
-    schedule_key = "Forecast-aware tuned schedule"
+    schedule_key = "Forecast-aware history rule"
     def fmt(key, metric):
         return f'{test_metrics[key][metric]:.2f}'
     data = [
         ["Policy", "Mean reward/day", "Sold/day", "Unmet demand/day", "Waste/day"],
         ["Q-learning (seed 2026)", fmt(q_key, "reward_mean"), fmt(q_key, "sold_mean"), fmt(q_key, "stockout_mean"), fmt(q_key, "waste_mean")],
         ["Fixed 15-portion batch", fmt(fixed_key, "reward_mean"), fmt(fixed_key, "sold_mean"), fmt(fixed_key, "stockout_mean"), fmt(fixed_key, "waste_mean")],
-        ["Forecast-aware tuned schedule", fmt(schedule_key, "reward_mean"), fmt(schedule_key, "sold_mean"), fmt(schedule_key, "stockout_mean"), fmt(schedule_key, "waste_mean")],
+        ["Forecast-aware history rule", fmt(schedule_key, "reward_mean"), fmt(schedule_key, "sold_mean"), fmt(schedule_key, "stockout_mean"), fmt(schedule_key, "waste_mean")],
     ]
     col_ws = [145, 83, 63, 91, 74]
     y = draw_table(c, data, MARGIN, y, FULL_W, col_widths=col_ws, font=6.5)
@@ -370,7 +373,7 @@ def draw_page_two(c):
 
     yR = section(c, "14. Limitations", right_x, yR, COL_W)
     yR = paragraph(c,
-        "Demand is synthetic and Poisson-distributed. The environment assumes one meal type, eight time slots, a categorical forecast with assumed 70% accuracy, a 20-portion maximum action, simplified carryover, and illustrative reward weights. The hidden regime persists across the day, while the tabular policy does not maintain a belief state. No real-world savings are established.",
+        "Demand is synthetic and Poisson-distributed. The environment assumes one meal type, eight time slots, a forecast with assumed 70% accuracy, a 20-portion maximum action, simplified carryover, and illustrative reward weights. Sales pace and prior stockouts summarize history but do not maintain a full belief over the persistent hidden regime. No real-world savings are established.",
         right_x, yR, COL_W, "small", gap=3)
     yR = section(c, "15. Reward-weight sensitivity", right_x, yR, COL_W)
     sens_rows = [["Train waste wt.", "Base reward/day", "Waste/day", "Unmet/day"]]
@@ -389,11 +392,11 @@ def draw_page_two(c):
         right_x, yR, COL_W, "tiny", gap=3)
     yR = section(c, "16. Future work", right_x, yR, COL_W)
     yR = paragraph(c,
-        "Next steps are to model belief updates from earlier sales, test several forecast-accuracy levels, calibrate assumptions with permitted anonymized canteen records, and model freshness, preparation lead times, and food-safety constraints.",
+        "Future work could maintain a richer belief state, test different forecast accuracies, calibrate assumptions with permitted anonymized records, and model freshness, lead times, and food-safety constraints.",
         right_x, yR, COL_W, "small", gap=3)
     yR = section(c, "Conclusion", right_x, yR, COL_W)
     yR = paragraph(c,
-        "Within this synthetic simulation with a noisy demand forecast, Q-learning is compared with a fixed batch and a Bayesian forecast-aware rule that uses the same forecast information. Results are simulator-specific and reflect a trade-off among reward, unmet demand, and waste. The true regime is hidden and the current Q-table does not maintain a belief state; no measured campus-wide impact is established.",
+        "Within this noisy-forecast simulation, Q-learning is compared with a fixed batch and a history-aware forecast rule using the same observations. The sales-pace and prior-stockout features provide a compact summary of past outcomes but not a full belief state. Results are simulator-specific and show trade-offs rather than a universal RL win.",
         right_x, yR, COL_W, "small", gap=3)
     yR = paragraph(c,
         "Reproducibility: source, trained Q-table, tests, metrics, sensitivity analysis, and figure scripts are included in this repository.",

@@ -1,55 +1,56 @@
 # Validation Notes — AI Assignment 2
 
-## Current implementation
+## Updated implementation
 
-- The simulator samples a hidden daily demand regime from prior probabilities `0.25/0.50/0.25` with multipliers `0.70/1.00/1.30`.
-- The agent sees a noisy categorical forecast that matches the hidden regime with probability `0.70`; if wrong, one of the other two categories is selected uniformly. The true regime is used to generate Poisson demand but is not part of the agent's state.
-- The observation state remains `(time slot, exact inventory, observed forecast)` with 984 states and five preparation actions. The tabular Q-learning policy is memoryless over this observation and does not maintain a belief state; this partial-observability limitation is disclosed.
-- The forecast-aware baseline receives the same observed forecast and uses the posterior expected regime multiplier computed by Bayes' rule. Its target fraction is selected from a predeclared grid on a separate validation set, not the held-out test episodes.
-- Main evaluation uses 2,000 matched held-out simulated days per policy, five independent Q-learning training seeds, paired difference intervals, and 0.75x/1.25x demand-shift stress tests.
-- Reward sensitivity trains three agents per waste penalty and scores all learned policies using the same original reward weights. This is an exploratory diagnostic, not a claim that one coefficient is objectively optimal.
+- The hidden daily demand regime is sampled from probabilities `0.25/0.50/0.25` with demand multipliers `0.70/1.00/1.30`.
+- The agent receives a noisy categorical forecast that is correct with configured probability `0.70`; if wrong, another category is selected uniformly.
+- State contains time slot, exact inventory, observed forecast, sales-pace category, and a prior-stockout flag: `8 × 41 × 3 × 3 × 2 = 5,904` states.
+- Sales pace is cumulative sales from completed slots divided by the posterior-expected cumulative demand based on the noisy forecast. Categories are below expected (<85%), on track (85%-115%), or above expected (>115%). The prior-stockout flag signals that low sales may be censored by unavailable food.
+- This history summary is not a full belief state; the environment remains partially observable.
+- The baseline receives the same observable forecast and history signals as Q-learning. Its target fraction/history adjustment are selected on validation episodes, separate from held-out tests.
+- A small four-candidate grid selects the Q-learning learning rate and epsilon decay using two tuning seeds. Five final agents are then evaluated on the same held-out scenarios.
 
-## Latest nominal held-out evaluation
+## Latest main evaluation (6,000 training episodes per final seed)
 
 | Policy | Reward/day | Sold/day | Unmet demand/day | Waste/day |
 |---|---:|---:|---:|---:|
-| Q-learning (seed 2026) | 25.66 | 117.68 | 38.09 | 6.89 |
+| Q-learning (seed 2026) | 25.30 | 118.04 | 37.72 | 7.41 |
 | Fixed 15-portion batch | -5.08 | 106.48 | 49.29 | 13.52 |
-| Forecast-aware tuned schedule | 26.60 | 121.93 | 33.84 | 10.17 |
+| Forecast-aware history rule | 26.60 | 121.93 | 33.84 | 10.17 |
 
-The tuned forecast-aware baseline has higher nominal mean reward than Q-learning. Q-learning has less waste, but serves fewer portions and has higher unmet demand. The comparison must be described as a trade-off rather than an unconditional RL win. Values are from the synthetic simulator.
+The tuned history-aware rule has higher nominal reward. Q-learning produces less waste but sells fewer portions and has more unmet demand. Report this as a trade-off, not as an unconditional RL win.
 
-## Demand-shift stress test
+## Demand-shift stress test (mean reward/day)
 
-| Scenario | Q-learning reward/day | Tuned rule reward/day |
+| Scenario | Q-learning | History-aware rule |
 |---|---:|---:|
-| 0.75x demand | 21.43 | 12.69 |
-| 1.00x demand | 25.26 | 26.30 |
-| 1.25x demand | 3.15 | 9.03 |
+| 0.75x demand | 8.60 | 12.69 |
+| 1.00x demand | 25.07 | 26.30 |
+| 1.25x demand | 3.53 | 9.03 |
 
-The true regime remains generated using the configured prior, while the slot demand means are shifted. The learned policy and baseline planning means are not given advance knowledge of the shift.
+The trained policy and the rule's planning means remain nominal while environmental demand means shift.
 
-## Reward-weight sensitivity
+## Reward-weight sensitivity (4,000 training episodes per seed)
 
 | Training waste penalty | Base reward/day (SD) | Waste/day (SD) | Unmet demand/day (SD) |
 |---:|---:|---:|---:|
-| 0.75 | 25.71 (0.38) | 11.74 (0.45) | 32.72 (0.43) |
-| 1.50 | 26.07 (0.65) | 8.11 (0.65) | 36.57 (1.11) |
-| 2.25 | 23.52 (0.59) | 5.98 (0.65) | 40.50 (0.98) |
+| 0.75 | 24.77 (0.50) | 8.23 (0.37) | 37.23 (0.62) |
+| 1.50 | 23.93 (1.51) | 6.55 (1.02) | 39.63 (2.05) |
+| 2.25 | 20.99 (0.85) | 4.61 (0.10) | 43.57 (0.52) |
 
-Values are means and standard deviations across three independent training seeds, evaluated under common base reward weights. Greater waste penalties generally reduce waste but increase unmet demand.
+All policies are evaluated under the original reward weights. The SD is across three trained seeds, not a confidence interval. Higher waste penalties generally reduce waste but increase unmet demand.
 
-## Tests and reproducibility
+## Validation
 
-All 17 unit tests pass in the current working version. The tests cover environment transitions, state encoding/decoding, reward arithmetic, configuration validation, forecast accuracy and posterior interpretation, training output, matched-seed policy evaluation, and reproducibility.
+All 20 unit tests pass. They cover forecast accuracy/posterior inference, sales-pace categorization, state encoding/decoding, stockout-history representation, environment transitions, reward arithmetic, valid configuration, training output, and reproducible matched-seed evaluation.
 
-Run from the project root:
+From the project root:
 
-```powershell
+```bash
 python -m unittest discover -s tests -v
 python run_experiment.py
 python run_reward_sensitivity.py
 python make_report.py
 ```
 
-The report is two pages and uses synthetic simulation results. It does not establish real-world savings. The current tabular observation does not track belief updates from previous sales; this is a limitation and reasonable next extension.
+All outcomes are from the synthetic simulator, not actual campus data. The model uses a compact history summary rather than a full belief state and does not establish real-world savings.

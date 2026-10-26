@@ -30,7 +30,7 @@ RESULTS.mkdir(exist_ok=True)
 # Multipliers are deliberately spread around the baseline coefficient 1.50.
 WASTE_PENALTIES = (0.75, 1.50, 2.25)
 TRAINING_SEEDS = (6201, 6202, 6203)
-TRAINING_EPISODES = 20_000
+TRAINING_EPISODES = 4_000
 EVALUATION_EPISODES = 2_000
 EVALUATION_SEED_START = 700_000
 METRICS_TO_REPORT = ("reward", "sold", "stockout", "waste", "prepared", "demand")
@@ -50,6 +50,11 @@ def mean_and_seed_sd(per_seed_summaries: list[dict[str, float]]) -> tuple[dict, 
 
 def main() -> None:
     evaluation_config = EnvironmentConfig()
+    primary_metrics_path = RESULTS / "metrics.json"
+    if not primary_metrics_path.exists():
+        raise FileNotFoundError("Run `python run_experiment.py` first to select Q-learning hyperparameters.")
+    primary_metrics = json.loads(primary_metrics_path.read_text(encoding="utf-8"))
+    selected_q = primary_metrics["q_learning_hyperparameter_tuning"]["selected_parameters"]
     all_results = []
 
     print("Reward sensitivity experiment")
@@ -62,7 +67,10 @@ def main() -> None:
         seed_summaries: dict[str, dict[str, float]] = {}
         for seed in TRAINING_SEEDS:
             q_table, _returns, _training_info = train_q_learning(
-                TrainingConfig(episodes=TRAINING_EPISODES, seed=seed),
+                TrainingConfig(episodes=TRAINING_EPISODES, seed=seed,
+                               learning_rate=selected_q["learning_rate"],
+                               discount_factor=selected_q["discount_factor"],
+                               epsilon_decay=selected_q["epsilon_decay"]),
                 training_env_config,
             )
             # Evaluate every learned policy with the *same fixed base reward*.
@@ -106,6 +114,7 @@ def main() -> None:
             "true_regime_hidden_from_policy": True,
             "wrong_forecast_rule": "If wrong, one of the other outlook categories is selected uniformly.",
         },
+        "q_learning_hyperparameters": selected_q,
         "training_waste_penalties": list(WASTE_PENALTIES),
         "training_seeds": list(TRAINING_SEEDS),
         "training_episodes_per_seed": TRAINING_EPISODES,

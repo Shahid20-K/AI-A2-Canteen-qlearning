@@ -28,25 +28,30 @@ class TestCanteenEnv(unittest.TestCase):
     def test_exact_inventory_state_and_dimensions(self):
         env = CanteenEnv(seed=4)
         state, info = env.reset(seed=4)
-        self.assertEqual(env.n_states, 8 * 41 * 3)
+        self.assertEqual(env.n_states, 8 * 41 * 3 * 3 * 2)
         self.assertEqual(env.n_actions, 5)
         self.assertIn(info["demand_outlook"], {"low", "normal", "high"})
         self.assertGreaterEqual(state, 0)
         self.assertLess(state, env.n_states)
 
-        # Same time and outlook, but different exact inventories must produce different states.
+        # Exact inventory, pace, and stockout history all affect the encoded state.
         env.inventory = 12
         state_12 = env._state_index()
         env.inventory = 13
         state_13 = env._state_index()
         self.assertNotEqual(state_12, state_13)
+        base = env.encode_state(0, 12, env.demand_outlook_index, 1, False)
+        self.assertNotEqual(base, env.encode_state(0, 12, env.demand_outlook_index, 0, False))
+        self.assertNotEqual(base, env.encode_state(0, 12, env.demand_outlook_index, 1, True))
 
-        # For a fixed time and outlook, every allowed inventory maps to a unique state.
-        env.inventory = 0
-        states = []
-        for inventory in range(env.config.max_inventory + 1):
-            env.inventory = inventory
-            states.append(env._state_index())
+        # All combinations in the five-factor representation map to unique states.
+        states = [env.encode_state(t, inventory, outlook, pace, stockout)
+                  for t in range(env.horizon)
+                  for inventory in range(env.config.max_inventory + 1)
+                  for outlook in range(env.outlook_levels)
+                  for pace in range(env.sales_pace_levels)
+                  for stockout in (False, True)]
+        self.assertEqual(len(states), env.n_states)
         self.assertEqual(len(states), len(set(states)))
 
     def test_invalid_action_fails(self):
@@ -117,13 +122,37 @@ class TestCanteenEnv(unittest.TestCase):
     def test_state_decode_round_trip(self):
         env = CanteenEnv()
         for time_slot in range(env.horizon):
-            env.time = time_slot
             for inventory in range(env.config.max_inventory + 1):
-                env.inventory = inventory
                 for outlook in range(env.outlook_levels):
-                    env.demand_outlook_index = outlook
-                    state = env._state_index()
-                    self.assertEqual(env.decode_state(state), (time_slot, inventory, outlook))
+                    for pace in range(env.sales_pace_levels):
+                        for stockout in (False, True):
+                            state = env.encode_state(time_slot, inventory, outlook, pace, stockout)
+                            self.assertEqual(env.decode_state(state),
+                                             (time_slot, inventory, outlook, pace, stockout))
+
+    def test_sales_pace_uses_only_completed_slot_sales(self):
+        env = CanteenEnv(seed=9)
+        env.reset(seed=9)
+        self.assertEqual(env.sales_pace_category_index(), 1)
+        env.cumulative_expected_demand = 100.0
+        env.cumulative_sold = 60
+        self.assertEqual(env.sales_pace_category_index(), 0)
+        env.cumulative_sold = 100
+        self.assertEqual(env.sales_pace_category_index(), 1)
+        env.cumulative_sold = 130
+        self.assertEqual(env.sales_pace_category_index(), 2)
+
+    def test_prior_stockout_flag_is_carried_to_next_state(self):
+        # Zero demand for first slot makes stockouts impossible; force the history update
+        # directly to test that the flag changes the state encoding correctly.
+        env = CanteenEnv(EnvironmentConfig(demand_means=(0,) * 8), seed=7)
+        env.reset(seed=7)
+        self.assertFalse(env.prior_stockout_occurred)
+        env.prior_stockout_occurred = True
+        with_stockout_history = env._state_index()
+        env.prior_stockout_occurred = False
+        without_stockout_history = env._state_index()
+        self.assertNotEqual(with_stockout_history, without_stockout_history)
 
     def test_non_integer_action_is_rejected(self):
         env = CanteenEnv()
@@ -139,6 +168,7 @@ class TestCanteenEnv(unittest.TestCase):
             EnvironmentConfig(regime_probabilities=(0.25, 0.50, 0.20)),
             EnvironmentConfig(regime_probabilities=(-0.1, 0.6, 0.5)),
             EnvironmentConfig(carryover_fraction=1.1),
+            EnvironmentConfig(sales_pace_below_threshold=1.2, sales_pace_above_threshold=1.1),
         ]
         for config in invalid_configs:
             with self.subTest(config=config):
