@@ -1,0 +1,1461 @@
+{
+  "project": "Adaptive Meal Preparation in a Campus Canteen using Q-Learning",
+  "synthetic_simulation_notice": "Demand profiles, outlook probabilities, forecast accuracy, carryover fraction, and reward weights are illustrative assumptions, not measured campus data.",
+  "state_representation": "time slot, exact inventory, noisy observed forecast, cumulative sales pace category (below/on-track/above expected), and whether any earlier slot had a stockout; true daily regime is hidden",
+  "sales_history_features": {
+    "sales_pace_categories": [
+      "below_expected",
+      "on_track",
+      "above_expected"
+    ],
+    "classification": "Cumulative sales in completed slots divided by cumulative expected demand under the Bayesian forecast estimate; below 0.85 is below expected, above 1.15 is above expected, otherwise on track. Before the first slot it is on track.",
+    "prior_stockout_flag": "True if any earlier slot had unmet demand; this helps distinguish censored sales from a low-demand signal.",
+    "limitation": "These are compact observation summaries, not a full Bayesian belief state; the process remains partially observable."
+  },
+  "forecast_model": {
+    "accuracy_assumption": 0.7,
+    "wrong_forecast_rule": "If the forecast is wrong, one of the other outlook categories is selected uniformly.",
+    "true_regime_hidden_from_policy": true,
+    "baseline_demand_estimate": "Posterior expected demand multiplier given the observed forecast, using Bayes' rule."
+  },
+  "state_count": 5904,
+  "forecast_accuracy_assumption": 0.7,
+  "forecast_observation_model": "True regime is sampled from the configured prior. The forecast is correct with the configured probability; on an error, one of the other categories is chosen uniformly.",
+  "baseline_forecast_interpretation": "The rule-based baseline uses the Bayesian posterior forecast estimate and the same sales-pace/prior-stockout signals as Q-learning, with its target and correction tuned on a separate validation set.",
+  "training": {
+    "episodes": 6000,
+    "learning_rate": 0.08,
+    "discount_factor": 0.92,
+    "epsilon_start": 1.0,
+    "epsilon_min": 0.05,
+    "epsilon_decay": 0.9992,
+    "final_epsilon": 0.05,
+    "seed": 2026
+  },
+  "q_learning_hyperparameter_tuning": {
+    "purpose": "Screen a four-candidate learning-rate/epsilon-decay grid on a two-seed validation sweep before final test evaluation.",
+    "tuning_training_seeds": [
+      8101,
+      8102
+    ],
+    "training_episodes_per_candidate_seed": 4000,
+    "validation_episodes_per_candidate_seed": 600,
+    "validation_seed_start": 360000,
+    "candidate_learning_rates": [
+      0.08,
+      0.18
+    ],
+    "candidate_epsilon_decays": [
+      0.9992,
+      0.9996
+    ],
+    "selected_parameters": {
+      "learning_rate": 0.08,
+      "discount_factor": 0.92,
+      "epsilon_decay": 0.9992
+    },
+    "candidate_results": [
+      {
+        "learning_rate": 0.08,
+        "discount_factor": 0.92,
+        "epsilon_decay": 0.9992,
+        "training_episodes_per_seed": 4000,
+        "training_seeds": [
+          8101,
+          8102
+        ],
+        "validation_reward_by_seed": {
+          "8101": 25.42125,
+          "8102": 26.6575
+        },
+        "validation_reward_mean": 26.039375,
+        "validation_reward_sd_across_tuning_seeds": 0.8741607582418682
+      },
+      {
+        "learning_rate": 0.08,
+        "discount_factor": 0.92,
+        "epsilon_decay": 0.9996,
+        "training_episodes_per_seed": 4000,
+        "training_seeds": [
+          8101,
+          8102
+        ],
+        "validation_reward_by_seed": {
+          "8101": 24.111666666666668,
+          "8102": 24.79125
+        },
+        "validation_reward_mean": 24.451458333333335,
+        "validation_reward_sd_across_tuning_seeds": 0.480537983381358
+      },
+      {
+        "learning_rate": 0.18,
+        "discount_factor": 0.92,
+        "epsilon_decay": 0.9992,
+        "training_episodes_per_seed": 4000,
+        "training_seeds": [
+          8101,
+          8102
+        ],
+        "validation_reward_by_seed": {
+          "8101": 24.776666666666667,
+          "8102": 24.968333333333334
+        },
+        "validation_reward_mean": 24.872500000000002,
+        "validation_reward_sd_across_tuning_seeds": 0.13552879972742146
+      },
+      {
+        "learning_rate": 0.18,
+        "discount_factor": 0.92,
+        "epsilon_decay": 0.9996,
+        "training_episodes_per_seed": 4000,
+        "training_seeds": [
+          8101,
+          8102
+        ],
+        "validation_reward_by_seed": {
+          "8101": 25.514166666666668,
+          "8102": 22.95875
+        },
+        "validation_reward_mean": 24.23645833333333,
+        "validation_reward_sd_across_tuning_seeds": 1.8069524537571255
+      }
+    ]
+  },
+  "robustness_training_seeds": [
+    2026,
+    2027,
+    2028,
+    2029,
+    2030
+  ],
+  "training_episodes_per_seed": 6000,
+  "validation_tuning": {
+    "purpose": "Select forecast-aware rule target and sales-history correction on validation scenarios separate from final test episodes.",
+    "target_fractions_considered": [
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0,
+      1.1,
+      1.2
+    ],
+    "history_adjustments_considered": [
+      0.0,
+      0.1,
+      0.2
+    ],
+    "validation_episodes_per_candidate": 400,
+    "validation_seed_start": 300000,
+    "selected_target_fraction": 1.0,
+    "selected_history_adjustment": 0.0,
+    "candidate_results": [
+      {
+        "target_fraction": 0.5,
+        "history_adjustment": 0.0,
+        "reward_mean": -29.6925,
+        "reward_ci95_low": -32.50325832943553,
+        "reward_ci95_high": -26.881741670564466,
+        "waste_mean": 0.5325,
+        "stockout_mean": 78.655
+      },
+      {
+        "target_fraction": 0.5,
+        "history_adjustment": 0.1,
+        "reward_mean": -17.205,
+        "reward_ci95_low": -19.82069813289992,
+        "reward_ci95_high": -14.589301867100076,
+        "waste_mean": 0.8775,
+        "stockout_mean": 70.7
+      },
+      {
+        "target_fraction": 0.5,
+        "history_adjustment": 0.2,
+        "reward_mean": -8.324375,
+        "reward_ci95_low": -10.913260418529395,
+        "reward_ci95_high": -5.735489581470604,
+        "waste_mean": 1.045,
+        "stockout_mean": 65.13
+      },
+      {
+        "target_fraction": 0.6,
+        "history_adjustment": 0.0,
+        "reward_mean": -8.0875,
+        "reward_ci95_low": -10.687048443412648,
+        "reward_ci95_high": -5.487951556587353,
+        "waste_mean": 1.0775,
+        "stockout_mean": 64.95
+      },
+      {
+        "target_fraction": 0.6,
+        "history_adjustment": 0.1,
+        "reward_mean": 4.709375,
+        "reward_ci95_low": 2.298086131148726,
+        "reward_ci95_high": 7.120663868851273,
+        "waste_mean": 1.835,
+        "stockout_mean": 56.345
+      },
+      {
+        "target_fraction": 0.6,
+        "history_adjustment": 0.2,
+        "reward_mean": 12.629375,
+        "reward_ci95_low": 10.41822348608986,
+        "reward_ci95_high": 14.84052651391014,
+        "waste_mean": 2.5775,
+        "stockout_mean": 50.7125
+      },
+      {
+        "target_fraction": 0.7,
+        "history_adjustment": 0.0,
+        "reward_mean": 13.473125,
+        "reward_ci95_low": 11.243134036008296,
+        "reward_ci95_high": 15.703115963991703,
+        "waste_mean": 2.69,
+        "stockout_mean": 50.075
+      },
+      {
+        "target_fraction": 0.7,
+        "history_adjustment": 0.1,
+        "reward_mean": 18.06875,
+        "reward_ci95_low": 15.967310875058875,
+        "reward_ci95_high": 20.17018912494113,
+        "waste_mean": 3.4925,
+        "stockout_mean": 46.39
+      },
+      {
+        "target_fraction": 0.7,
+        "history_adjustment": 0.2,
+        "reward_mean": 22.04375,
+        "reward_ci95_low": 20.051003906709497,
+        "reward_ci95_high": 24.036496093290502,
+        "waste_mean": 4.49,
+        "stockout_mean": 42.8625
+      },
+      {
+        "target_fraction": 0.8,
+        "history_adjustment": 0.0,
+        "reward_mean": 22.04125,
+        "reward_ci95_low": 19.937212620893956,
+        "reward_ci95_high": 24.145287379106048,
+        "waste_mean": 4.3375,
+        "stockout_mean": 43.035
+      },
+      {
+        "target_fraction": 0.8,
+        "history_adjustment": 0.1,
+        "reward_mean": 24.346875,
+        "reward_ci95_low": 22.532681784160815,
+        "reward_ci95_high": 26.161068215839187,
+        "waste_mean": 5.2875,
+        "stockout_mean": 40.5725
+      },
+      {
+        "target_fraction": 0.8,
+        "history_adjustment": 0.2,
+        "reward_mean": 25.75,
+        "reward_ci95_low": 24.026394397801567,
+        "reward_ci95_high": 27.473605602198433,
+        "waste_mean": 7.0375,
+        "stockout_mean": 37.76
+      },
+      {
+        "target_fraction": 0.9,
+        "history_adjustment": 0.0,
+        "reward_mean": 26.15875,
+        "reward_ci95_low": 24.39709055314016,
+        "reward_ci95_high": 27.920409446859843,
+        "waste_mean": 6.7675,
+        "stockout_mean": 37.815
+      },
+      {
+        "target_fraction": 0.9,
+        "history_adjustment": 0.1,
+        "reward_mean": 27.69,
+        "reward_ci95_low": 26.002774483297944,
+        "reward_ci95_high": 29.377225516702058,
+        "waste_mean": 8.0625,
+        "stockout_mean": 35.435
+      },
+      {
+        "target_fraction": 0.9,
+        "history_adjustment": 0.2,
+        "reward_mean": 26.79625,
+        "reward_ci95_low": 25.069471887279615,
+        "reward_ci95_high": 28.523028112720386,
+        "waste_mean": 9.685,
+        "stockout_mean": 34.1575
+      },
+      {
+        "target_fraction": 1.0,
+        "history_adjustment": 0.0,
+        "reward_mean": 27.976875,
+        "reward_ci95_low": 26.248908414011815,
+        "reward_ci95_high": 29.704841585988184,
+        "waste_mean": 9.66,
+        "stockout_mean": 33.47
+      },
+      {
+        "target_fraction": 1.0,
+        "history_adjustment": 0.1,
+        "reward_mean": 27.441875,
+        "reward_ci95_low": 25.694078338834036,
+        "reward_ci95_high": 29.189671661165963,
+        "waste_mean": 11.015,
+        "stockout_mean": 32.275
+      },
+      {
+        "target_fraction": 1.0,
+        "history_adjustment": 0.2,
+        "reward_mean": 26.74,
+        "reward_ci95_low": 24.98010971424502,
+        "reward_ci95_high": 28.499890285754976,
+        "waste_mean": 11.8225,
+        "stockout_mean": 31.795
+      },
+      {
+        "target_fraction": 1.1,
+        "history_adjustment": 0.0,
+        "reward_mean": 26.425625,
+        "reward_ci95_low": 24.580559860724733,
+        "reward_ci95_high": 28.270690139275267,
+        "waste_mean": 13.1675,
+        "stockout_mean": 30.4775
+      },
+      {
+        "target_fraction": 1.1,
+        "history_adjustment": 0.1,
+        "reward_mean": 26.609375,
+        "reward_ci95_low": 24.797790140814953,
+        "reward_ci95_high": 28.420959859185047,
+        "waste_mean": 13.115,
+        "stockout_mean": 30.425
+      },
+      {
+        "target_fraction": 1.1,
+        "history_adjustment": 0.2,
+        "reward_mean": 24.265625,
+        "reward_ci95_low": 22.54644437731022,
+        "reward_ci95_high": 25.98480562268978,
+        "waste_mean": 14.8925,
+        "stockout_mean": 29.8525
+      },
+      {
+        "target_fraction": 1.2,
+        "history_adjustment": 0.0,
+        "reward_mean": 25.56875,
+        "reward_ci95_low": 23.662471405448862,
+        "reward_ci95_high": 27.47502859455114,
+        "waste_mean": 14.09,
+        "stockout_mean": 29.9625
+      },
+      {
+        "target_fraction": 1.2,
+        "history_adjustment": 0.1,
+        "reward_mean": 23.450625,
+        "reward_ci95_low": 21.664252510132663,
+        "reward_ci95_high": 25.236997489867335,
+        "waste_mean": 15.9975,
+        "stockout_mean": 29.1075
+      },
+      {
+        "target_fraction": 1.2,
+        "history_adjustment": 0.2,
+        "reward_mean": 23.984375,
+        "reward_ci95_low": 22.240958907574914,
+        "reward_ci95_high": 25.727791092425086,
+        "waste_mean": 15.35,
+        "stockout_mean": 29.51
+      }
+    ]
+  },
+  "evaluation_episodes_per_policy": 2000,
+  "evaluation_seed_start": 500000,
+  "test_metrics": {
+    "Q-learning (seed 2026)": {
+      "reward_mean": 25.30425,
+      "reward_std": 16.987124554727295,
+      "reward_ci95_low": 24.55975644116613,
+      "reward_ci95_high": 26.04874355883387,
+      "sold_mean": 118.0445,
+      "sold_std": 13.888843354825033,
+      "sold_ci95_low": 117.4357946017434,
+      "sold_ci95_high": 118.6532053982566,
+      "prepared_mean": 125.45,
+      "prepared_std": 9.440183183035414,
+      "prepared_ci95_low": 125.03626573018057,
+      "prepared_ci95_high": 125.86373426981943,
+      "stockout_mean": 37.7245,
+      "stockout_std": 24.35173717215367,
+      "stockout_ci95_low": 36.657238062131974,
+      "stockout_ci95_high": 38.791761937868024,
+      "waste_mean": 7.4055,
+      "waste_std": 6.271820917310171,
+      "waste_ci95_low": 7.1306253288893116,
+      "waste_ci95_high": 7.680374671110688,
+      "demand_mean": 155.769,
+      "demand_std": 35.41835497216757,
+      "demand_ci95_low": 154.2167221523679,
+      "demand_ci95_high": 157.3212778476321
+    },
+    "Fixed 15-portion batch": {
+      "reward_mean": -5.07675,
+      "reward_std": 17.89492521950863,
+      "reward_ci95_low": -5.8610296771646935,
+      "reward_ci95_high": -4.292470322835306,
+      "sold_mean": 106.4835,
+      "sold_std": 8.423075557712009,
+      "sold_ci95_low": 106.11434243727746,
+      "sold_ci95_high": 106.85265756272256,
+      "prepared_mean": 120.0,
+      "prepared_std": 0.0,
+      "prepared_ci95_low": 120.0,
+      "prepared_ci95_high": 120.0,
+      "stockout_mean": 49.2855,
+      "stockout_std": 28.463416393440777,
+      "stockout_ci95_low": 48.038035775018734,
+      "stockout_ci95_high": 50.532964224981264,
+      "waste_mean": 13.5165,
+      "waste_std": 8.423075557712009,
+      "waste_ci95_low": 13.147342437277445,
+      "waste_ci95_high": 13.885657562722557,
+      "demand_mean": 155.769,
+      "demand_std": 35.41835497216757,
+      "demand_ci95_low": 154.2167221523679,
+      "demand_ci95_high": 157.3212778476321
+    },
+    "Forecast-aware history rule": {
+      "reward_mean": 26.59625,
+      "reward_std": 17.99077040727894,
+      "reward_ci95_low": 25.807769722273964,
+      "reward_ci95_high": 27.38473027772604,
+      "sold_mean": 121.926,
+      "sold_std": 12.98344364583034,
+      "sold_ci95_low": 121.35697549354737,
+      "sold_ci95_high": 122.49502450645264,
+      "prepared_mean": 132.095,
+      "prepared_std": 8.114425238331686,
+      "prepared_ci95_low": 131.73936963394752,
+      "prepared_ci95_high": 132.45063036605248,
+      "stockout_mean": 33.843,
+      "stockout_std": 25.372292517898472,
+      "stockout_ci95_low": 32.73101025202541,
+      "stockout_ci95_high": 34.954989747974594,
+      "waste_mean": 10.169,
+      "waste_std": 9.090531220943003,
+      "waste_ci95_low": 9.770589903072391,
+      "waste_ci95_high": 10.56741009692761,
+      "demand_mean": 155.769,
+      "demand_std": 35.41835497216757,
+      "demand_ci95_low": 154.2167221523679,
+      "demand_ci95_high": 157.3212778476321
+    }
+  },
+  "multi_seed_robustness": {
+    "description": "Mean and SD across independently trained Q-learning agents; each was tested on the same held-out synthetic days.",
+    "q_learning_metrics": {
+      "reward_mean": {
+        "mean_across_training_seeds": 24.914299999999997,
+        "std_across_training_seeds": 0.3918026707572313,
+        "min_across_training_seeds": 24.31275,
+        "max_across_training_seeds": 25.30425
+      },
+      "reward_std": {
+        "mean_across_training_seeds": 17.097162468683013,
+        "std_across_training_seeds": 0.20719772503022363,
+        "min_across_training_seeds": 16.93354687784893,
+        "max_across_training_seeds": 17.399036086184896
+      },
+      "reward_ci95_low": {
+        "mean_across_training_seeds": 24.164983816954265,
+        "std_across_training_seeds": 0.3926803834773062,
+        "min_across_training_seeds": 23.557752767329166,
+        "max_across_training_seeds": 24.55975644116613
+      },
+      "reward_ci95_high": {
+        "mean_across_training_seeds": 25.66361618304573,
+        "std_across_training_seeds": 0.39113387144559564,
+        "min_across_training_seeds": 25.067747232670836,
+        "max_across_training_seeds": 26.04874355883387
+      },
+      "sold_mean": {
+        "mean_across_training_seeds": 117.6836,
+        "std_across_training_seeds": 0.5134760705232541,
+        "min_across_training_seeds": 117.071,
+        "max_across_training_seeds": 118.08
+      },
+      "sold_std": {
+        "mean_across_training_seeds": 13.918781968533262,
+        "std_across_training_seeds": 0.43187710246922817,
+        "min_across_training_seeds": 13.445979182569376,
+        "max_across_training_seeds": 14.606069582003132
+      },
+      "sold_ci95_low": {
+        "mean_across_training_seeds": 117.07358248414548,
+        "std_across_training_seeds": 0.5040568154739115,
+        "min_across_training_seeds": 116.48170397986506,
+        "max_across_training_seeds": 117.44759096544007
+      },
+      "sold_ci95_high": {
+        "mean_across_training_seeds": 118.29361751585449,
+        "std_across_training_seeds": 0.5234105498328442,
+        "min_across_training_seeds": 117.66029602013494,
+        "max_across_training_seeds": 118.72013922360124
+      },
+      "prepared_mean": {
+        "mean_across_training_seeds": 124.978,
+        "std_across_training_seeds": 0.8686041244433506,
+        "min_across_training_seeds": 123.7775,
+        "max_across_training_seeds": 125.7425
+      },
+      "prepared_std": {
+        "mean_across_training_seeds": 9.545663620216633,
+        "std_across_training_seeds": 0.7391058006145381,
+        "min_across_training_seeds": 8.774946928432012,
+        "max_across_training_seeds": 10.749249889485
+      },
+      "prepared_ci95_low": {
+        "mean_across_training_seeds": 124.55964284619503,
+        "std_across_training_seeds": 0.8629148162818989,
+        "min_across_training_seeds": 123.37495929161642,
+        "max_across_training_seeds": 125.35792099451383
+      },
+      "prepared_ci95_high": {
+        "mean_across_training_seeds": 125.39635715380496,
+        "std_across_training_seeds": 0.875455795024214,
+        "min_across_training_seeds": 124.18004070838359,
+        "max_across_training_seeds": 126.12707900548618
+      },
+      "stockout_mean": {
+        "mean_across_training_seeds": 38.08540000000001,
+        "std_across_training_seeds": 0.5134760705232524,
+        "min_across_training_seeds": 37.689,
+        "max_across_training_seeds": 38.698
+      },
+      "stockout_std": {
+        "mean_across_training_seeds": 24.346986175597287,
+        "std_across_training_seeds": 0.14509115138809447,
+        "min_across_training_seeds": 24.143627241327763,
+        "max_across_training_seeds": 24.539272278166095
+      },
+      "stockout_ci95_low": {
+        "mean_across_training_seeds": 37.01834628373669,
+        "std_across_training_seeds": 0.5103055450933851,
+        "min_across_training_seeds": 36.63085888199352,
+        "max_across_training_seeds": 37.62251897372583
+      },
+      "stockout_ci95_high": {
+        "mean_across_training_seeds": 39.15245371626331,
+        "std_across_training_seeds": 0.5167054014303909,
+        "min_across_training_seeds": 38.74714111800648,
+        "max_across_training_seeds": 39.77348102627417
+      },
+      "waste_mean": {
+        "mean_across_training_seeds": 7.2944,
+        "std_across_training_seeds": 0.37978158196521317,
+        "min_across_training_seeds": 6.7065,
+        "max_across_training_seeds": 7.6945
+      },
+      "waste_std": {
+        "mean_across_training_seeds": 6.333301728807539,
+        "std_across_training_seeds": 0.20031855345501898,
+        "min_across_training_seeds": 6.079028462141114,
+        "max_across_training_seeds": 6.587705874152411
+      },
+      "waste_ci95_low": {
+        "mean_across_training_seeds": 7.016830813522441,
+        "std_across_training_seeds": 0.3791192238555733,
+        "min_across_training_seeds": 6.422640390853062,
+        "max_across_training_seeds": 7.405781060252562
+      },
+      "waste_ci95_high": {
+        "mean_across_training_seeds": 7.57196918647756,
+        "std_across_training_seeds": 0.38064533097748615,
+        "min_across_training_seeds": 6.990359609146938,
+        "max_across_training_seeds": 7.983218939747437
+      },
+      "demand_mean": {
+        "mean_across_training_seeds": 155.769,
+        "std_across_training_seeds": 0.0,
+        "min_across_training_seeds": 155.769,
+        "max_across_training_seeds": 155.769
+      },
+      "demand_std": {
+        "mean_across_training_seeds": 35.41835497216757,
+        "std_across_training_seeds": 0.0,
+        "min_across_training_seeds": 35.41835497216757,
+        "max_across_training_seeds": 35.41835497216757
+      },
+      "demand_ci95_low": {
+        "mean_across_training_seeds": 154.2167221523679,
+        "std_across_training_seeds": 0.0,
+        "min_across_training_seeds": 154.2167221523679,
+        "max_across_training_seeds": 154.2167221523679
+      },
+      "demand_ci95_high": {
+        "mean_across_training_seeds": 157.3212778476321,
+        "std_across_training_seeds": 0.0,
+        "min_across_training_seeds": 157.3212778476321,
+        "max_across_training_seeds": 157.3212778476321
+      }
+    },
+    "per_training_seed": [
+      {
+        "seed": 2026,
+        "training": {
+          "episodes": 6000,
+          "learning_rate": 0.08,
+          "discount_factor": 0.92,
+          "epsilon_start": 1.0,
+          "epsilon_min": 0.05,
+          "epsilon_decay": 0.9992,
+          "final_epsilon": 0.05,
+          "seed": 2026
+        },
+        "test_metrics": {
+          "reward_mean": 25.30425,
+          "reward_std": 16.987124554727295,
+          "reward_ci95_low": 24.55975644116613,
+          "reward_ci95_high": 26.04874355883387,
+          "sold_mean": 118.0445,
+          "sold_std": 13.888843354825033,
+          "sold_ci95_low": 117.4357946017434,
+          "sold_ci95_high": 118.6532053982566,
+          "prepared_mean": 125.45,
+          "prepared_std": 9.440183183035414,
+          "prepared_ci95_low": 125.03626573018057,
+          "prepared_ci95_high": 125.86373426981943,
+          "stockout_mean": 37.7245,
+          "stockout_std": 24.35173717215367,
+          "stockout_ci95_low": 36.657238062131974,
+          "stockout_ci95_high": 38.791761937868024,
+          "waste_mean": 7.4055,
+          "waste_std": 6.271820917310171,
+          "waste_ci95_low": 7.1306253288893116,
+          "waste_ci95_high": 7.680374671110688,
+          "demand_mean": 155.769,
+          "demand_std": 35.41835497216757,
+          "demand_ci95_low": 154.2167221523679,
+          "demand_ci95_high": 157.3212778476321
+        }
+      },
+      {
+        "seed": 2027,
+        "training": {
+          "episodes": 6000,
+          "learning_rate": 0.08,
+          "discount_factor": 0.92,
+          "epsilon_start": 1.0,
+          "epsilon_min": 0.05,
+          "epsilon_decay": 0.9992,
+          "final_epsilon": 0.05,
+          "seed": 2027
+        },
+        "test_metrics": {
+          "reward_mean": 24.991125,
+          "reward_std": 16.93931773203952,
+          "reward_ci95_low": 24.248726667550365,
+          "reward_ci95_high": 25.733523332449636,
+          "sold_mean": 117.071,
+          "sold_std": 13.445979182569376,
+          "sold_ci95_low": 116.48170397986506,
+          "sold_ci95_high": 117.66029602013494,
+          "prepared_mean": 123.7775,
+          "prepared_std": 9.184779465883677,
+          "prepared_ci95_low": 123.37495929161642,
+          "prepared_ci95_high": 124.18004070838359,
+          "stockout_mean": 38.698,
+          "stockout_std": 24.539272278166095,
+          "stockout_ci95_low": 37.62251897372583,
+          "stockout_ci95_high": 39.77348102627417,
+          "waste_mean": 6.7065,
+          "waste_std": 6.476830429786479,
+          "waste_ci95_low": 6.422640390853062,
+          "waste_ci95_high": 6.990359609146938,
+          "demand_mean": 155.769,
+          "demand_std": 35.41835497216757,
+          "demand_ci95_low": 154.2167221523679,
+          "demand_ci95_high": 157.3212778476321
+        }
+      },
+      {
+        "seed": 2028,
+        "training": {
+          "episodes": 6000,
+          "learning_rate": 0.08,
+          "discount_factor": 0.92,
+          "epsilon_start": 1.0,
+          "epsilon_min": 0.05,
+          "epsilon_decay": 0.9992,
+          "final_epsilon": 0.05,
+          "seed": 2028
+        },
+        "test_metrics": {
+          "reward_mean": 25.188,
+          "reward_std": 17.399036086184896,
+          "reward_ci95_low": 24.425453622339045,
+          "reward_ci95_high": 25.950546377660952,
+          "sold_mean": 118.08,
+          "sold_std": 14.606069582003132,
+          "sold_ci95_low": 117.43986077639876,
+          "sold_ci95_high": 118.72013922360124,
+          "prepared_mean": 125.58,
+          "prepared_std": 10.749249889485,
+          "prepared_ci95_low": 125.1088933521836,
+          "prepared_ci95_high": 126.0511066478164,
+          "stockout_mean": 37.689,
+          "stockout_std": 24.143627241327763,
+          "stockout_ci95_low": 36.63085888199352,
+          "stockout_ci95_high": 38.74714111800648,
+          "waste_mean": 7.5,
+          "waste_std": 6.251122960647516,
+          "waste_ci95_low": 7.226032456835935,
+          "waste_ci95_high": 7.773967543164065,
+          "demand_mean": 155.769,
+          "demand_std": 35.41835497216757,
+          "demand_ci95_low": 154.2167221523679,
+          "demand_ci95_high": 157.3212778476321
+        }
+      },
+      {
+        "seed": 2029,
+        "training": {
+          "episodes": 6000,
+          "learning_rate": 0.08,
+          "discount_factor": 0.92,
+          "epsilon_start": 1.0,
+          "epsilon_min": 0.05,
+          "epsilon_decay": 0.9992,
+          "final_epsilon": 0.05,
+          "seed": 2029
+        },
+        "test_metrics": {
+          "reward_mean": 24.775375,
+          "reward_std": 16.93354687784893,
+          "reward_ci95_low": 24.03322958638663,
+          "reward_ci95_high": 25.517520413613372,
+          "sold_mean": 118.048,
+          "sold_std": 13.69954505694929,
+          "sold_ci95_low": 117.44759096544007,
+          "sold_ci95_high": 118.64840903455993,
+          "prepared_mean": 125.7425,
+          "prepared_std": 8.774946928432012,
+          "prepared_ci95_low": 125.35792099451383,
+          "prepared_ci95_high": 126.12707900548618,
+          "stockout_mean": 37.721,
+          "stockout_std": 24.404158261866666,
+          "stockout_ci95_low": 36.65144060657894,
+          "stockout_ci95_high": 38.790559393421056,
+          "waste_mean": 7.6945,
+          "waste_std": 6.587705874152411,
+          "waste_ci95_low": 7.405781060252562,
+          "waste_ci95_high": 7.983218939747437,
+          "demand_mean": 155.769,
+          "demand_std": 35.41835497216757,
+          "demand_ci95_low": 154.2167221523679,
+          "demand_ci95_high": 157.3212778476321
+        }
+      },
+      {
+        "seed": 2030,
+        "training": {
+          "episodes": 6000,
+          "learning_rate": 0.08,
+          "discount_factor": 0.92,
+          "epsilon_start": 1.0,
+          "epsilon_min": 0.05,
+          "epsilon_decay": 0.9992,
+          "final_epsilon": 0.05,
+          "seed": 2030
+        },
+        "test_metrics": {
+          "reward_mean": 24.31275,
+          "reward_std": 17.22678709261443,
+          "reward_ci95_low": 23.557752767329166,
+          "reward_ci95_high": 25.067747232670836,
+          "sold_mean": 117.1745,
+          "sold_std": 13.953472666319481,
+          "sold_ci95_low": 116.5629620972801,
+          "sold_ci95_high": 117.78603790271988,
+          "prepared_mean": 124.34,
+          "prepared_std": 9.579158634247062,
+          "prepared_ci95_low": 123.92017486248076,
+          "prepared_ci95_high": 124.75982513751924,
+          "stockout_mean": 38.5945,
+          "stockout_std": 24.29613592447223,
+          "stockout_ci95_low": 37.52967489425318,
+          "stockout_ci95_high": 39.65932510574681,
+          "waste_mean": 7.1655,
+          "waste_std": 6.079028462141114,
+          "waste_ci95_low": 6.8990748307813305,
+          "waste_ci95_high": 7.431925169218669,
+          "demand_mean": 155.769,
+          "demand_std": 35.41835497216757,
+          "demand_ci95_low": 154.2167221523679,
+          "demand_ci95_high": 157.3212778476321
+        }
+      }
+    ]
+  },
+  "paired_comparisons": {
+    "Fixed 15-portion batch": {
+      "reward": {
+        "mean_difference_across_training_seeds": 29.99105,
+        "std_of_seed_level_differences": 0.3918026707572313,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": 30.381,
+            "std_difference": 13.906921936175145,
+            "ci95_low": 29.771502272981415,
+            "ci95_high": 30.990497727018585,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": 30.067875,
+            "std_difference": 13.407646856607268,
+            "ci95_low": 29.480258968122172,
+            "ci95_high": 30.65549103187783,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": 30.26475,
+            "std_difference": 14.342862468468233,
+            "ci95_low": 29.63614633676006,
+            "ci95_high": 30.89335366323994,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": 29.852125,
+            "std_difference": 13.959773973065056,
+            "ci95_low": 29.240310930335607,
+            "ci95_high": 30.463939069664395,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": 29.3895,
+            "std_difference": 14.018400319714154,
+            "ci95_low": 28.775116517406563,
+            "ci95_high": 30.00388348259344,
+            "episodes": 2000
+          }
+        }
+      },
+      "sold": {
+        "mean_difference_across_training_seeds": 11.2001,
+        "std_of_seed_level_differences": 0.5134760705232523,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": 11.561,
+            "std_difference": 7.387121481462921,
+            "ci95_low": 11.23724512650424,
+            "ci95_high": 11.88475487349576,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": 10.5875,
+            "std_difference": 7.008345182787485,
+            "ci95_low": 10.280345729725479,
+            "ci95_high": 10.894654270274522,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": 11.5965,
+            "std_difference": 8.27949048742528,
+            "ci95_low": 11.233635330440663,
+            "ci95_high": 11.959364669559339,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": 11.5645,
+            "std_difference": 7.120125549730282,
+            "ci95_low": 11.252446739144414,
+            "ci95_high": 11.876553260855587,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": 10.691,
+            "std_difference": 7.314319423864203,
+            "ci95_low": 10.370435817358215,
+            "ci95_high": 11.011564182641786,
+            "episodes": 2000
+          }
+        }
+      },
+      "stockout": {
+        "mean_difference_across_training_seeds": -11.2001,
+        "std_of_seed_level_differences": 0.5134760705232523,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": -11.561,
+            "std_difference": 7.387121481462921,
+            "ci95_low": -11.88475487349576,
+            "ci95_high": -11.23724512650424,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": -10.5875,
+            "std_difference": 7.008345182787485,
+            "ci95_low": -10.894654270274522,
+            "ci95_high": -10.280345729725479,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": -11.5965,
+            "std_difference": 8.27949048742528,
+            "ci95_low": -11.959364669559339,
+            "ci95_high": -11.233635330440663,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": -11.5645,
+            "std_difference": 7.120125549730282,
+            "ci95_low": -11.876553260855587,
+            "ci95_high": -11.252446739144414,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": -10.691,
+            "std_difference": 7.314319423864203,
+            "ci95_low": -11.011564182641786,
+            "ci95_high": -10.370435817358215,
+            "episodes": 2000
+          }
+        }
+      },
+      "waste": {
+        "mean_difference_across_training_seeds": -6.222099999999999,
+        "std_of_seed_level_differences": 0.37978158196521317,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": -6.111,
+            "std_difference": 4.817809112275118,
+            "ci95_low": -6.322149794082235,
+            "ci95_high": -5.899850205917764,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": -6.81,
+            "std_difference": 4.8709098617651225,
+            "ci95_low": -7.0234770370383455,
+            "ci95_high": -6.596522962961654,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": -6.0165,
+            "std_difference": 5.010367216065097,
+            "ci95_low": -6.236089025072215,
+            "ci95_high": -5.796910974927784,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": -5.822,
+            "std_difference": 4.6022718795423865,
+            "ci95_low": -6.023703458362413,
+            "ci95_high": -5.620296541637587,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": -6.351,
+            "std_difference": 5.088491463359877,
+            "ci95_low": -6.574012971174001,
+            "ci95_high": -6.1279870288259986,
+            "episodes": 2000
+          }
+        }
+      },
+      "prepared": {
+        "mean_difference_across_training_seeds": 4.978,
+        "std_of_seed_level_differences": 0.8686041244433508,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": 5.45,
+            "std_difference": 9.440183183035414,
+            "ci95_low": 5.036265730180577,
+            "ci95_high": 5.863734269819424,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": 3.7775,
+            "std_difference": 9.184779465883677,
+            "ci95_low": 3.3749592916164217,
+            "ci95_high": 4.180040708383578,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": 5.58,
+            "std_difference": 10.749249889485,
+            "ci95_low": 5.108893352183597,
+            "ci95_high": 6.051106647816403,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": 5.7425,
+            "std_difference": 8.774946928432012,
+            "ci95_low": 5.357920994513831,
+            "ci95_high": 6.127079005486168,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": 4.34,
+            "std_difference": 9.579158634247062,
+            "ci95_low": 3.9201748624807626,
+            "ci95_high": 4.759825137519237,
+            "episodes": 2000
+          }
+        }
+      }
+    },
+    "Forecast-aware history rule": {
+      "reward": {
+        "mean_difference_across_training_seeds": -1.6819499999999998,
+        "std_of_seed_level_differences": 0.3918026707572321,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": -1.292,
+            "std_difference": 8.35080334208806,
+            "ci95_low": -1.6579900932169702,
+            "ci95_high": -0.9260099067830299,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": -1.605125,
+            "std_difference": 9.34300545112786,
+            "ci95_low": -2.01460026793631,
+            "ci95_high": -1.1956497320636894,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": -1.40825,
+            "std_difference": 8.013953060714147,
+            "ci95_low": -1.759476978720087,
+            "ci95_high": -1.057023021279913,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": -1.820875,
+            "std_difference": 8.159479703932995,
+            "ci95_low": -2.1784799650688713,
+            "ci95_high": -1.463270034931129,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": -2.2835,
+            "std_difference": 8.877508537248188,
+            "ci95_low": -2.6725739661783847,
+            "ci95_high": -1.8944260338216152,
+            "episodes": 2000
+          }
+        }
+      },
+      "sold": {
+        "mean_difference_across_training_seeds": -4.2424,
+        "std_of_seed_level_differences": 0.5134760705232525,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": -3.8815,
+            "std_difference": 3.5106438241482167,
+            "ci95_low": -4.03536074941747,
+            "ci95_high": -3.7276392505825293,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": -4.855,
+            "std_difference": 3.8410092001761615,
+            "ci95_low": -5.023339650406402,
+            "ci95_high": -4.686660349593599,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": -3.846,
+            "std_difference": 3.6567704309940616,
+            "ci95_low": -4.006265030331553,
+            "ci95_high": -3.685734969668447,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": -3.878,
+            "std_difference": 3.744746662163128,
+            "ci95_low": -4.042120758664199,
+            "ci95_high": -3.713879241335801,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": -4.7515,
+            "std_difference": 3.97298880819403,
+            "ci95_low": -4.925623911759767,
+            "ci95_high": -4.577376088240233,
+            "episodes": 2000
+          }
+        }
+      },
+      "stockout": {
+        "mean_difference_across_training_seeds": 4.2424,
+        "std_of_seed_level_differences": 0.5134760705232525,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": 3.8815,
+            "std_difference": 3.5106438241482167,
+            "ci95_low": 3.7276392505825293,
+            "ci95_high": 4.03536074941747,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": 4.855,
+            "std_difference": 3.8410092001761615,
+            "ci95_low": 4.686660349593599,
+            "ci95_high": 5.023339650406402,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": 3.846,
+            "std_difference": 3.6567704309940616,
+            "ci95_low": 3.685734969668447,
+            "ci95_high": 4.006265030331553,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": 3.878,
+            "std_difference": 3.744746662163128,
+            "ci95_low": 3.713879241335801,
+            "ci95_high": 4.042120758664199,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": 4.7515,
+            "std_difference": 3.97298880819403,
+            "ci95_low": 4.577376088240233,
+            "ci95_high": 4.925623911759767,
+            "episodes": 2000
+          }
+        }
+      },
+      "waste": {
+        "mean_difference_across_training_seeds": -2.8745999999999996,
+        "std_of_seed_level_differences": 0.3797815819652132,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": -2.7635,
+            "std_difference": 3.921129349777796,
+            "ci95_low": -2.935351070783585,
+            "ci95_high": -2.591648929216415,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": -3.4625,
+            "std_difference": 3.9342512523297533,
+            "ci95_low": -3.6349261635191508,
+            "ci95_high": -3.290073836480849,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": -2.669,
+            "std_difference": 3.7583908459439708,
+            "ci95_low": -2.833718741383856,
+            "ci95_high": -2.5042812586161443,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": -2.4745,
+            "std_difference": 3.8140035476557657,
+            "ci95_low": -2.6416560755000793,
+            "ci95_high": -2.3073439244999205,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": -3.0035,
+            "std_difference": 4.1558541013437695,
+            "ci95_low": -3.1856383365934486,
+            "ci95_high": -2.821361663406551,
+            "episodes": 2000
+          }
+        }
+      },
+      "prepared": {
+        "mean_difference_across_training_seeds": -7.117,
+        "std_of_seed_level_differences": 0.8686041244433511,
+        "per_training_seed": {
+          "2026": {
+            "mean_difference": -6.645,
+            "std_difference": 5.752001196008172,
+            "ci95_low": -6.897092567346313,
+            "ci95_high": -6.392907432653686,
+            "episodes": 2000
+          },
+          "2027": {
+            "mean_difference": -8.3175,
+            "std_difference": 5.669900143196254,
+            "ci95_low": -8.565994330058125,
+            "ci95_high": -8.069005669941877,
+            "episodes": 2000
+          },
+          "2028": {
+            "mean_difference": -6.515,
+            "std_difference": 5.849947516257859,
+            "ci95_low": -6.771385254098709,
+            "ci95_high": -6.258614745901291,
+            "episodes": 2000
+          },
+          "2029": {
+            "mean_difference": -6.3525,
+            "std_difference": 5.964564675303885,
+            "ci95_low": -6.6139085725754,
+            "ci95_high": -6.0910914274246,
+            "episodes": 2000
+          },
+          "2030": {
+            "mean_difference": -7.755,
+            "std_difference": 6.378112193868872,
+            "ci95_low": -8.034533091698778,
+            "ci95_high": -7.475466908301222,
+            "episodes": 2000
+          }
+        }
+      }
+    }
+  },
+  "demand_shift_stress_test": {
+    "description": "Seed-2026 Q-table and rule-based baselines evaluated on 1,000 episodes per scenario. Demand means scale in the environment, while both the Q-table and the tuned schedule's planning demand means remain nominal; this tests deployment shift without giving the baseline the changed demand means.",
+    "results": {
+      "low_demand_0.75x": {
+        "Q-learning (trained at nominal demand)": {
+          "reward_mean": 8.598,
+          "reward_std": 16.463199352888033,
+          "reward_ci95_low": 7.577600332440689,
+          "reward_ci95_high": 9.618399667559313,
+          "sold_mean": 91.391,
+          "sold_std": 13.587153113501362,
+          "sold_ci95_low": 90.5488595251802,
+          "sold_ci95_high": 92.2331404748198,
+          "prepared_mean": 105.81,
+          "prepared_std": 9.371858499344285,
+          "prepared_ci95_low": 105.22912619217199,
+          "prepared_ci95_high": 106.39087380782802,
+          "stockout_mean": 24.131,
+          "stockout_std": 15.996741378628796,
+          "stockout_ci95_low": 23.13951169721627,
+          "stockout_ci95_high": 25.12248830278373,
+          "waste_mean": 14.419,
+          "waste_std": 9.065076646924428,
+          "waste_ci95_low": 13.85714072838165,
+          "waste_ci95_high": 14.980859271618352,
+          "demand_mean": 115.522,
+          "demand_std": 26.640142890255174,
+          "demand_ci95_low": 113.87082683697928,
+          "demand_ci95_high": 117.17317316302073
+        },
+        "Fixed 15-portion batch": {
+          "reward_mean": -4.4935,
+          "reward_std": 20.3217292677181,
+          "reward_ci95_low": -5.7530538293941795,
+          "reward_ci95_high": -3.2339461706058206,
+          "sold_mean": 95.151,
+          "sold_std": 11.949518399918466,
+          "sold_ci95_low": 94.41036117631766,
+          "sold_ci95_high": 95.89163882368233,
+          "prepared_mean": 120.0,
+          "prepared_std": 0.0,
+          "prepared_ci95_low": 120.0,
+          "prepared_ci95_high": 120.0,
+          "stockout_mean": 20.371,
+          "stockout_std": 16.36891261813992,
+          "stockout_ci95_low": 19.35644428480559,
+          "stockout_ci95_high": 21.385555715194407,
+          "waste_mean": 24.849,
+          "waste_std": 11.949518399918466,
+          "waste_ci95_low": 24.108361176317672,
+          "waste_ci95_high": 25.58963882368233,
+          "demand_mean": 115.522,
+          "demand_std": 26.640142890255174,
+          "demand_ci95_low": 113.87082683697928,
+          "demand_ci95_high": 117.17317316302073
+        },
+        "Forecast-aware history rule": {
+          "reward_mean": 12.69225,
+          "reward_std": 28.681025149759577,
+          "reward_ci95_low": 10.914581644004482,
+          "reward_ci95_high": 14.469918355995517,
+          "sold_mean": 105.783,
+          "sold_std": 17.821658803897083,
+          "sold_ci95_low": 104.67840214334694,
+          "sold_ci95_high": 106.88759785665306,
+          "prepared_mean": 130.825,
+          "prepared_std": 9.073406289905776,
+          "prepared_ci95_low": 130.26262445176087,
+          "prepared_ci95_high": 131.3873755482391,
+          "stockout_mean": 9.739,
+          "stockout_std": 11.217518072716071,
+          "stockout_ci95_low": 9.043731026643853,
+          "stockout_ci95_high": 10.434268973356149,
+          "waste_mean": 25.042,
+          "waste_std": 13.612697805414676,
+          "waste_ci95_low": 24.198276248772157,
+          "waste_ci95_high": 25.885723751227847,
+          "demand_mean": 115.522,
+          "demand_std": 26.640142890255174,
+          "demand_ci95_low": 113.87082683697928,
+          "demand_ci95_high": 117.17317316302073
+        }
+      },
+      "nominal_1.00x": {
+        "Q-learning (trained at nominal demand)": {
+          "reward_mean": 25.0705,
+          "reward_std": 16.911487313455112,
+          "reward_ci95_low": 24.02231515678142,
+          "reward_ci95_high": 26.118684843218578,
+          "sold_mean": 117.825,
+          "sold_std": 14.082353769440948,
+          "sold_ci95_low": 116.95216667053725,
+          "sold_ci95_high": 118.69783332946275,
+          "prepared_mean": 125.34,
+          "prepared_std": 9.45641707116516,
+          "prepared_ci95_low": 124.75388519759214,
+          "prepared_ci95_high": 125.92611480240787,
+          "stockout_mean": 37.613,
+          "stockout_std": 24.006197710768955,
+          "stockout_ci95_low": 36.12508045056354,
+          "stockout_ci95_high": 39.10091954943646,
+          "waste_mean": 7.515,
+          "waste_std": 6.516305489864424,
+          "waste_ci95_low": 7.111115201362355,
+          "waste_ci95_high": 7.918884798637644,
+          "demand_mean": 155.438,
+          "demand_std": 35.316871852380096,
+          "demand_ci95_low": 153.24903760423808,
+          "demand_ci95_high": 157.6269623957619
+        },
+        "Fixed 15-portion batch": {
+          "reward_mean": -5.2165,
+          "reward_std": 17.904159759304168,
+          "reward_ci95_low": -6.326211318846291,
+          "reward_ci95_high": -4.106788681153708,
+          "sold_mean": 106.349,
+          "sold_std": 8.384837774489409,
+          "sold_ci95_low": 105.82930237050329,
+          "sold_ci95_high": 106.86869762949672,
+          "prepared_mean": 120.0,
+          "prepared_std": 0.0,
+          "prepared_ci95_low": 120.0,
+          "prepared_ci95_high": 120.0,
+          "stockout_mean": 49.089,
+          "stockout_std": 28.40316564784318,
+          "stockout_ci95_low": 47.32855355435777,
+          "stockout_ci95_high": 50.84944644564223,
+          "waste_mean": 13.651,
+          "waste_std": 8.384837774489409,
+          "waste_ci95_low": 13.131302370503285,
+          "waste_ci95_high": 14.170697629496715,
+          "demand_mean": 155.438,
+          "demand_std": 35.316871852380096,
+          "demand_ci95_low": 153.24903760423808,
+          "demand_ci95_high": 157.6269623957619
+        },
+        "Forecast-aware history rule": {
+          "reward_mean": 26.3025,
+          "reward_std": 18.032346887864716,
+          "reward_ci95_low": 25.184843560611533,
+          "reward_ci95_high": 27.420156439388464,
+          "sold_mean": 121.692,
+          "sold_std": 12.968396790479357,
+          "sold_ci95_low": 120.88821043940884,
+          "sold_ci95_high": 122.49578956059115,
+          "prepared_mean": 131.99,
+          "prepared_std": 8.071868126713607,
+          "prepared_ci95_low": 131.48970043024255,
+          "prepared_ci95_high": 132.49029956975747,
+          "stockout_mean": 33.746,
+          "stockout_std": 25.033780660822572,
+          "stockout_ci95_low": 32.194390199467826,
+          "stockout_ci95_high": 35.29760980053218,
+          "waste_mean": 10.298,
+          "waste_std": 9.610283739492479,
+          "waste_ci95_low": 9.70234844268538,
+          "waste_ci95_high": 10.89365155731462,
+          "demand_mean": 155.438,
+          "demand_std": 35.316871852380096,
+          "demand_ci95_low": 153.24903760423808,
+          "demand_ci95_high": 157.6269623957619
+        }
+      },
+      "high_demand_1.25x": {
+        "Q-learning (trained at nominal demand)": {
+          "reward_mean": 3.53375,
+          "reward_std": 30.469428276503596,
+          "reward_ci95_low": 1.645235269804955,
+          "reward_ci95_high": 5.422264730195045,
+          "sold_mean": 123.808,
+          "sold_std": 9.893281205596706,
+          "sold_ci95_low": 123.19480807801246,
+          "sold_ci95_high": 124.42119192198756,
+          "prepared_mean": 126.465,
+          "prepared_std": 8.330556594440324,
+          "prepared_ci95_low": 125.94866675289882,
+          "prepared_ci95_high": 126.98133324710119,
+          "stockout_mean": 72.026,
+          "stockout_std": 37.259463114645,
+          "stockout_ci95_low": 69.71663455038873,
+          "stockout_ci95_high": 74.33536544961126,
+          "waste_mean": 2.657,
+          "waste_std": 4.151214711814312,
+          "waste_ci95_low": 2.3997050465036387,
+          "waste_ci95_high": 2.9142949534963614,
+          "demand_mean": 195.834,
+          "demand_std": 43.605273349262056,
+          "demand_ci95_low": 193.13131715715303,
+          "demand_ci95_high": 198.53668284284697
+        },
+        "Fixed 15-portion batch": {
+          "reward_mean": -24.756,
+          "reward_std": 29.569812948982918,
+          "reward_ci95_low": -26.588755994516955,
+          "reward_ci95_high": -22.923244005483046,
+          "sold_mean": 112.308,
+          "sold_std": 6.056882186556201,
+          "sold_ci95_low": 111.93259055271517,
+          "sold_ci95_high": 112.68340944728484,
+          "prepared_mean": 120.0,
+          "prepared_std": 0.0,
+          "prepared_ci95_low": 120.0,
+          "prepared_ci95_high": 120.0,
+          "stockout_mean": 83.526,
+          "stockout_std": 38.93922941697213,
+          "stockout_ci95_low": 81.11252155632653,
+          "stockout_ci95_high": 85.93947844367347,
+          "waste_mean": 7.692,
+          "waste_std": 6.056882186556201,
+          "waste_ci95_low": 7.316590552715158,
+          "waste_ci95_high": 8.067409447284842,
+          "demand_mean": 195.834,
+          "demand_std": 43.605273349262056,
+          "demand_ci95_low": 193.13131715715303,
+          "demand_ci95_high": 198.53668284284697
+        },
+        "Forecast-aware history rule": {
+          "reward_mean": 9.0285,
+          "reward_std": 29.342708758860475,
+          "reward_ci95_low": 7.209820069019358,
+          "reward_ci95_high": 10.84717993098064,
+          "sold_mean": 128.367,
+          "sold_std": 9.49497053526052,
+          "sold_ci95_low": 127.7784956291308,
+          "sold_ci95_high": 128.95550437086916,
+          "prepared_mean": 132.12,
+          "prepared_std": 7.957318575934919,
+          "prepared_ci95_low": 131.62680028495657,
+          "prepared_ci95_high": 132.61319971504344,
+          "stockout_mean": 67.467,
+          "stockout_std": 37.278205101313226,
+          "stockout_ci95_low": 65.15647291002007,
+          "stockout_ci95_high": 69.77752708997993,
+          "waste_mean": 3.753,
+          "waste_std": 5.26057645744881,
+          "waste_ci95_low": 3.4269460931444375,
+          "waste_ci95_high": 4.079053906855562,
+          "demand_mean": 195.834,
+          "demand_std": 43.605273349262056,
+          "demand_ci95_low": 193.13131715715303,
+          "demand_ci95_high": 198.53668284284697
+        }
+      }
+    }
+  }
+}

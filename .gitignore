@@ -5,3 +5,6 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 *.zip
+
+.training_cache/
+results/.duration_validation_workers/

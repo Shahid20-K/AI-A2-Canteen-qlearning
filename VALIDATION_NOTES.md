@@ -1,34 +1,45 @@
 # Validation Notes — AI Assignment 2
 
-## Updated implementation
+## Updated implementation and assumptions
 
-- The hidden daily demand regime is sampled from probabilities `0.25/0.50/0.25` with demand multipliers `0.70/1.00/1.30`.
-- The agent receives a noisy categorical forecast that is correct with configured probability `0.70`; if wrong, another category is selected uniformly.
-- State contains time slot, exact inventory, observed forecast, sales-pace category, and a prior-stockout flag: `8 × 41 × 3 × 3 × 2 = 5,904` states.
-- Sales pace is cumulative sales from completed slots divided by the posterior-expected cumulative demand based on the noisy forecast. Categories are below expected (<85%), on track (85%-115%), or above expected (>115%). The prior-stockout flag signals that low sales may be censored by unavailable food.
-- This history summary is not a full belief state; the environment remains partially observable.
-- The baseline receives the same observable forecast and history signals as Q-learning. Its target fraction/history adjustment are selected on validation episodes, separate from held-out tests.
-- A small four-candidate grid selects the Q-learning learning rate and epsilon decay using two tuning seeds. Five final agents are then evaluated on the same held-out scenarios.
+- The true daily demand regime is hidden. The agent receives a noisy categorical forecast, correct with assumed probability 0.70; if wrong, another category is selected uniformly.
+- State contains time slot, exact inventory, observed forecast, cumulative sales-pace category, and prior-stockout flag: `8 × 41 × 3 × 3 × 2 = 5,904` states. This is a compact history summary, not a full Bayesian belief state.
+- Sales pace is based only on completed slots and cumulative expected demand under the forecast posterior. The stockout flag helps identify when low sales may reflect unavailable inventory.
+- The per-slot preparation actions are `{0, 5, 10, 15, 20}`; the 20-portion action maximum is an explicit modelling assumption. Total inventory is separately capped at 40.
+- Reward weights are illustrative utility values, not measured financial costs. All demand and outcomes are synthetic; no real canteen records were used.
 
-## Latest main evaluation (6,000 training episodes per final seed)
+## Training-duration validation
+
+The Q-learning configuration selected on the existing hyperparameter validation sweep was held fixed while comparing 6,000 and 60,000 episodes. Each duration was evaluated on the same 1,000 validation scenarios across five training seeds, with the final test seed range excluded.
+
+| Training episodes | Mean validation reward (SD across seeds) | Waste/day | Unmet demand/day | Sold/day |
+|---:|---:|---:|---:|---:|
+| 6,000 | 24.10 (0.58) | 7.35 | 38.64 | 117.45 |
+| 60,000 | 25.73 (0.60) | 7.48 | 37.51 | 118.58 |
+
+The paired reward gain was 1.63 per simulated day on average across five matched training seeds (SD of paired seed-level differences 0.71). Longer training was selected for the final run. Waste rose slightly, so this is a trade-off and validation-only evidence, not proof of real-world benefit.
+
+## Latest main held-out evaluation (60,000 training episodes per final seed)
 
 | Policy | Reward/day | Sold/day | Unmet demand/day | Waste/day |
 |---|---:|---:|---:|---:|
-| Q-learning (seed 2026) | 25.30 | 118.04 | 37.72 | 7.41 |
+| Q-learning (seed 2026) | 26.93 | 119.54 | 36.23 | 7.86 |
 | Fixed 15-portion batch | -5.08 | 106.48 | 49.29 | 13.52 |
-| Forecast-aware history rule | 26.60 | 121.93 | 33.84 | 10.17 |
+| Validation-tuned forecast-aware rule | 26.60 | 121.93 | 33.84 | 10.17 |
 
-The tuned history-aware rule has higher nominal reward. Q-learning produces less waste but sells fewer portions and has more unmet demand. Report this as a trade-off, not as an unconditional RL win.
+Q-learning's primary-seed reward was 26.93 (95% CI 26.23–27.64); the tuned rule's was 26.60 (95% CI 25.81–27.38). The paired Q-learning-minus-rule difference was 0.33 (95% CI −0.01 to 0.68), which includes zero. Across five Q-learning seeds, mean test reward was 26.64 (SD 0.43). Q-learning produced less waste but also fewer sales and more unmet demand than the tuned rule. Report this as a trade-off rather than an unconditional RL win.
+
+The validation-selected rule target was 100% and the history adjustment was 0%. Thus the implemented baseline is accurately described as forecast-aware and validation-tuned; its selected action rule did not use the optional history correction to alter preparation quantities.
 
 ## Demand-shift stress test (mean reward/day)
 
-| Scenario | Q-learning | History-aware rule |
+| Scenario | Q-learning | Forecast-aware rule |
 |---|---:|---:|
-| 0.75x demand | 8.60 | 12.69 |
-| 1.00x demand | 25.07 | 26.30 |
-| 1.25x demand | 3.53 | 9.03 |
+| 0.75× demand | 10.83 | 12.69 |
+| 1.00× demand | 26.90 | 26.30 |
+| 1.25× demand | 5.10 | 9.03 |
 
-The trained policy and the rule's planning means remain nominal while environmental demand means shift.
+The learned policy and rule keep nominal planning assumptions while environmental demand means shift. The stress test shows the result is sensitive to the demand distribution.
 
 ## Reward-weight sensitivity (4,000 training episodes per seed)
 
@@ -38,17 +49,18 @@ The trained policy and the rule's planning means remain nominal while environmen
 | 1.50 | 23.93 (1.51) | 6.55 (1.02) | 39.63 (2.05) |
 | 2.25 | 20.99 (0.85) | 4.61 (0.10) | 43.57 (0.52) |
 
-All policies are evaluated under the original reward weights. The SD is across three trained seeds, not a confidence interval. Higher waste penalties generally reduce waste but increase unmet demand.
+All policies are evaluated under the original reward weights. SD is across three trained seeds, not a confidence interval. Higher waste penalties generally reduce waste but increase unmet demand.
 
-## Validation
+## Validation and reproduction
 
-All 20 unit tests pass. They cover forecast accuracy/posterior inference, sales-pace categorization, state encoding/decoding, stockout-history representation, environment transitions, reward arithmetic, valid configuration, training output, and reproducible matched-seed evaluation.
+All 20 unit tests pass. They cover noisy-forecast accuracy/posterior inference, sales-pace state features, state encoding/decoding, stockout history, environment transitions, reward arithmetic, configuration validation, training, and reproducible matched-seed evaluation.
 
 From the project root:
 
 ```bash
 python -m unittest discover -s tests -v
 python run_experiment.py
+python compare_training_duration.py
 python run_reward_sensitivity.py
 python make_report.py
 ```

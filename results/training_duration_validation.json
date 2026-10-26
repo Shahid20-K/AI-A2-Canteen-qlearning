@@ -1,0 +1,163 @@
+{
+  "purpose": "Compare training duration on fresh validation scenarios, separate from the final held-out test episodes. Q-learning hyperparameters are fixed to the previously validation-selected values.",
+  "validation_seed_start": 420000,
+  "validation_episodes_per_training_seed": 1000,
+  "selected_hyperparameters": {
+    "learning_rate": 0.08,
+    "discount_factor": 0.92,
+    "epsilon_decay": 0.9992
+  },
+  "training_seeds": [
+    2026,
+    2027,
+    2028,
+    2029,
+    2030
+  ],
+  "results": {
+    "6000": [
+      {
+        "seed": 2026,
+        "reward_mean": 24.69375,
+        "waste_mean": 7.467,
+        "unmet_mean": 38.152,
+        "sold_mean": 117.938,
+        "training_episodes": 6000,
+        "final_epsilon": 0.05
+      },
+      {
+        "seed": 2027,
+        "reward_mean": 23.93825,
+        "waste_mean": 6.839,
+        "unmet_mean": 39.314,
+        "sold_mean": 116.776,
+        "training_episodes": 6000,
+        "final_epsilon": 0.05
+      },
+      {
+        "seed": 2028,
+        "reward_mean": 24.32575,
+        "waste_mean": 7.492,
+        "unmet_mean": 38.347,
+        "sold_mean": 117.743,
+        "training_episodes": 6000,
+        "final_epsilon": 0.05
+      },
+      {
+        "seed": 2029,
+        "reward_mean": 24.35525,
+        "waste_mean": 7.691,
+        "unmet_mean": 38.106,
+        "sold_mean": 117.984,
+        "training_episodes": 6000,
+        "final_epsilon": 0.05
+      },
+      {
+        "seed": 2030,
+        "reward_mean": 23.16775,
+        "waste_mean": 7.276,
+        "unmet_mean": 39.291,
+        "sold_mean": 116.799,
+        "training_episodes": 6000,
+        "final_epsilon": 0.05
+      }
+    ],
+    "60000": [
+      {
+        "seed": 2026,
+        "reward_mean": 26.24875,
+        "waste_mean": 7.909,
+        "unmet_mean": 36.714,
+        "sold_mean": 119.376,
+        "training_episodes": 60000,
+        "final_epsilon": 0.05
+      },
+      {
+        "seed": 2027,
+        "reward_mean": 26.48325,
+        "waste_mean": 7.941,
+        "unmet_mean": 36.536,
+        "sold_mean": 119.554,
+        "training_episodes": 60000,
+        "final_epsilon": 0.05
+      },
+      {
+        "seed": 2028,
+        "reward_mean": 25.132,
+        "waste_mean": 7.165,
+        "unmet_mean": 38.225,
+        "sold_mean": 117.865,
+        "training_episodes": 60000,
+        "final_epsilon": 0.05
+      },
+      {
+        "seed": 2029,
+        "reward_mean": 25.47025,
+        "waste_mean": 7.033,
+        "unmet_mean": 38.168,
+        "sold_mean": 117.922,
+        "training_episodes": 60000,
+        "final_epsilon": 0.05
+      },
+      {
+        "seed": 2030,
+        "reward_mean": 25.29975,
+        "waste_mean": 7.374,
+        "unmet_mean": 37.889,
+        "sold_mean": 118.201,
+        "training_episodes": 60000,
+        "final_epsilon": 0.05
+      }
+    ]
+  },
+  "summary": {
+    "6000": {
+      "reward_mean": {
+        "mean_across_training_seeds": 24.09615,
+        "sd_across_training_seeds": 0.583916453784272
+      },
+      "waste_mean": {
+        "mean_across_training_seeds": 7.353,
+        "sd_across_training_seeds": 0.3227560998648978
+      },
+      "unmet_mean": {
+        "mean_across_training_seeds": 38.642,
+        "sd_across_training_seeds": 0.6097552787799365
+      },
+      "sold_mean": {
+        "mean_across_training_seeds": 117.44800000000001,
+        "sd_across_training_seeds": 0.6097552787799361
+      }
+    },
+    "60000": {
+      "reward_mean": {
+        "mean_across_training_seeds": 25.726799999999997,
+        "sd_across_training_seeds": 0.6013786348882046
+      },
+      "waste_mean": {
+        "mean_across_training_seeds": 7.484400000000001,
+        "sd_across_training_seeds": 0.4203377213622397
+      },
+      "unmet_mean": {
+        "mean_across_training_seeds": 37.5064,
+        "sd_across_training_seeds": 0.817015483329417
+      },
+      "sold_mean": {
+        "mean_across_training_seeds": 118.5836,
+        "sd_across_training_seeds": 0.8170154833294208
+      }
+    }
+  },
+  "paired_validation_reward_difference_60000_minus_6000": {
+    "mean_across_paired_training_seeds": 1.63065,
+    "sd_across_paired_training_seeds": 0.7139049218908634,
+    "per_seed": {
+      "2026": 1.5549999999999997,
+      "2027": 2.5450000000000017,
+      "2028": 0.8062500000000021,
+      "2029": 1.1149999999999984,
+      "2030": 2.131999999999998
+    }
+  },
+  "metadata_note": "For the 6,000-episode rows, training_episodes=6000 and final_epsilon=0.05 were added from the recorded training configuration to make metadata consistent with the 60,000-episode rows. No numerical validation metrics were changed and no training run was repeated for this normalization."
+}

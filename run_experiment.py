@@ -25,7 +25,7 @@ RESULTS = ROOT / "results"
 RESULTS.mkdir(exist_ok=True)
 
 TRAINING_SEEDS = [2026, 2027, 2028, 2029, 2030]
-TRAINING_EPISODES = 6000
+TRAINING_EPISODES = 60000
 VALIDATION_EPISODES = 400
 VALIDATION_SEED_START = 300_000
 Q_TUNING_SEEDS = (8101, 8102)
@@ -233,13 +233,13 @@ def main():
     env_config = EnvironmentConfig()
 
     # Tune the static baseline and Q-learning hyperparameters on validation scenarios.
-    print("[1/6] Tuning history-aware baseline on validation episodes...", flush=True)
+    print("[1/6] Tuning forecast-aware rule on validation episodes...", flush=True)
     tuned_fraction, tuned_history_adjustment, baseline_tuning_records = tune_forecast_baseline(env_config)
     print("[2/6] Tuning Q-learning hyperparameters on validation episodes...", flush=True)
     tuned_q_config, q_tuning_records = tune_q_learning_hyperparameters(env_config)
     baseline_policies = {
         "Fixed 15-portion batch": fixed_batch_policy,
-        "Forecast-aware history rule": partial(
+        "Forecast-aware tuned rule": partial(
             time_of_day_policy,
             target_fraction=tuned_fraction,
             history_adjustment=tuned_history_adjustment,
@@ -273,7 +273,36 @@ def main():
                                    learning_rate=tuned_q_config["learning_rate"],
                                    discount_factor=tuned_q_config["discount_factor"],
                                    epsilon_decay=tuned_q_config["epsilon_decay"])
-        q_table, returns, training_info = train_q_learning(train_cfg, env_config)
+        # Cache each final seed immediately so interrupted long runs can resume safely.
+        # The cache lives outside results/ and is ignored by Git; it is not required to use the project.
+        cache_dir = ROOT / ".training_cache"
+        cache_dir.mkdir(exist_ok=True)
+        cache_path = cache_dir / f"seed_{seed}_episodes_{TRAINING_EPISODES}.npz"
+        expected_meta = {
+            "episodes": train_cfg.episodes,
+            "learning_rate": train_cfg.learning_rate,
+            "discount_factor": train_cfg.discount_factor,
+            "epsilon_start": train_cfg.epsilon_start,
+            "epsilon_min": train_cfg.epsilon_min,
+            "epsilon_decay": train_cfg.epsilon_decay,
+            "seed": train_cfg.seed,
+        }
+        use_cache = False
+        if cache_path.exists():
+            with np.load(cache_path, allow_pickle=False) as cached:
+                cached_meta = json.loads(str(cached["metadata_json"].item()))
+                if all(cached_meta.get(key) == value for key, value in expected_meta.items()):
+                    q_table = cached["q_table"].copy()
+                    returns = cached["returns"].copy()
+                    training_info = cached_meta
+                    use_cache = True
+        if use_cache:
+            print(f"    loaded matching checkpoint for seed {seed}", flush=True)
+        else:
+            q_table, returns, training_info = train_q_learning(train_cfg, env_config)
+            np.savez_compressed(cache_path, q_table=q_table, returns=returns,
+                                metadata_json=np.array(json.dumps(training_info)))
+            print(f"    checkpoint saved for seed {seed}", flush=True)
         print(f"    training completed for seed {seed}; evaluating greedy policy...", flush=True)
         q_episode_metrics = evaluate_policy_episodes(
             greedy_policy(q_table), EVALUATION_EPISODES, env_config, EVALUATION_SEED_START
@@ -402,6 +431,9 @@ def main():
             "results": stress_results,
         },
     }
+    duration_validation_path = RESULTS / "training_duration_validation.json"
+    if duration_validation_path.exists():
+        results["training_duration_validation"] = json.loads(duration_validation_path.read_text(encoding="utf-8"))
     (RESULTS / "metrics.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     print("[5/6] Saving metrics and generating figures...", flush=True)
 
@@ -454,7 +486,7 @@ def main():
     plt.close(fig)
 
     plot_policy_heatmaps(primary_q_table, env_config)
-    write_sample_trace(primary_q_table, baseline_policies["Forecast-aware history rule"], env_config)
+    write_sample_trace(primary_q_table, baseline_policies["Forecast-aware tuned rule"], env_config)
 
     print("[6/6] Figure generation complete.", flush=True)
     print("Experiment complete.")

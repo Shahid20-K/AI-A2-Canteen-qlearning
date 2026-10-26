@@ -24,7 +24,7 @@ sensitivity = json.loads(sensitivity_path.read_text(encoding="utf-8"))
 
 # Team details and repository URL for this submission.
 TEAM_MEMBERS = "Shahid Samir Khatib - B24CM1055"
-GITHUB_URL = "https://github.com/Shahid20-K/AI-A2-Canteen-qlearning.git"
+GITHUB_URL = "https://github.com/Shahid20-K/AI-A2-Canteen-qlearning"
 
 PAGE_W, PAGE_H = A4
 MARGIN = 30
@@ -284,7 +284,7 @@ def draw_page_one(c):
 
     yR = section(c, "9. Evaluation design", right_x, yR, COL_W)
     yR = paragraph(c,
-        f"Each policy is tested on the same 2,000 held-out simulated days using matched seeds. The rule baseline uses the same forecast, sales-pace category, and prior-stockout flag; its target (selected from {', '.join(f'{x:.0%}' for x in metrics['validation_tuning']['target_fractions_considered'])}) and history correction are tuned on {metrics['validation_tuning']['validation_episodes_per_candidate']:,} validation days. Q-learning's learning rate and ε decay are tuned separately on a two-seed validation sweep. Five final training seeds, paired intervals, and 0.75×/1.25× stress tests assess robustness.",
+        f"Each policy is tested on the same 2,000 held-out simulated days using matched seeds. The rule baseline receives the same forecast and history signals. Its target and history correction are tuned on {metrics['validation_tuning']['validation_episodes_per_candidate']:,} validation days; the selected history correction is {metrics['validation_tuning']['selected_history_adjustment']:.0%}, so the final rule does not adjust preparation decisions using sales history. Q-learning's learning rate and epsilon decay are tuned separately on a two-seed validation sweep. Five final training seeds, paired intervals, and demand-shift tests assess robustness.",
         right_x, yR, COL_W, "body", gap=2)
     yR = section(c, "10. Reproducibility", right_x, yR, COL_W)
     yR = paragraph(c,
@@ -312,14 +312,14 @@ def draw_page_two(c):
     test_metrics = metrics["test_metrics"]
     q_key = "Q-learning (seed 2026)"
     fixed_key = "Fixed 15-portion batch"
-    schedule_key = "Forecast-aware history rule"
+    schedule_key = "Forecast-aware tuned rule"
     def fmt(key, metric):
         return f'{test_metrics[key][metric]:.2f}'
     data = [
         ["Policy", "Mean reward/day", "Sold/day", "Unmet demand/day", "Waste/day"],
         ["Q-learning (seed 2026)", fmt(q_key, "reward_mean"), fmt(q_key, "sold_mean"), fmt(q_key, "stockout_mean"), fmt(q_key, "waste_mean")],
         ["Fixed 15-portion batch", fmt(fixed_key, "reward_mean"), fmt(fixed_key, "sold_mean"), fmt(fixed_key, "stockout_mean"), fmt(fixed_key, "waste_mean")],
-        ["Forecast-aware history rule", fmt(schedule_key, "reward_mean"), fmt(schedule_key, "sold_mean"), fmt(schedule_key, "stockout_mean"), fmt(schedule_key, "waste_mean")],
+        ["Forecast-aware tuned rule", fmt(schedule_key, "reward_mean"), fmt(schedule_key, "sold_mean"), fmt(schedule_key, "stockout_mean"), fmt(schedule_key, "waste_mean")],
     ]
     col_ws = [145, 83, 63, 91, 74]
     y = draw_table(c, data, MARGIN, y, FULL_W, col_widths=col_ws, font=6.5)
@@ -343,8 +343,13 @@ def draw_page_two(c):
     yR = col_top
 
     yL = section(c, "12. Learning behavior", left_x, yL, COL_W)
+    duration = metrics.get("training_duration_validation", {})
+    duration_summary = duration.get("summary", {})
+    reward_6k = duration_summary.get("6000", {}).get("reward_mean", {}).get("mean_across_training_seeds", 24.10)
+    reward_60k = duration_summary.get("60000", {}).get("reward_mean", {}).get("mean_across_training_seeds", 25.73)
+    reward_delta = duration.get("paired_validation_reward_difference_60000_minus_6000", {}).get("mean_across_paired_training_seeds", 1.63)
     yL = paragraph(c,
-        "The curve plots 200-episode return means averaged across five training seeds, with a ±1 SD band. Returns rise early and then fluctuate around a stable range. This is evidence of training progress in the simulator, not proof of real-world performance.",
+        f"The curve plots 200-episode returns across five seeds (±1 SD). On 1,000 separate validation days per seed, 60,000 episodes scored {reward_60k:.2f} mean reward versus {reward_6k:.2f} for 6,000 episodes (+{reward_delta:.2f}/day across five matched training seeds). The 60,000-episode setting was selected before final held-out evaluation; gains are simulator-specific.",
         left_x, yL, COL_W, "small", gap=2)
     learning_path = RESULTS / "learning_curve.png"
     l_w = COL_W
@@ -396,7 +401,7 @@ def draw_page_two(c):
         right_x, yR, COL_W, "small", gap=3)
     yR = section(c, "Conclusion", right_x, yR, COL_W)
     yR = paragraph(c,
-        "Within this noisy-forecast simulation, Q-learning is compared with a fixed batch and a history-aware forecast rule using the same observations. The sales-pace and prior-stockout features provide a compact summary of past outcomes but not a full belief state. Results are simulator-specific and show trade-offs rather than a universal RL win.",
+        "Within this noisy-forecast simulation, Q-learning is compared with a fixed batch and a validation-tuned forecast-aware rule using the same observations. The sales-pace and prior-stockout features provide a compact summary of past outcomes but not a full belief state. Results are simulator-specific and show trade-offs rather than a universal RL win.",
         right_x, yR, COL_W, "small", gap=3)
     yR = paragraph(c,
         "Reproducibility: source, trained Q-table, tests, metrics, sensitivity analysis, and figure scripts are included in this repository.",
